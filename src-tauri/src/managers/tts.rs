@@ -130,7 +130,7 @@ impl TTSManager {
                     let timeout_seconds = settings.model_unload_timeout.to_seconds();
 
                     if let Some(limit_seconds) = timeout_seconds {
-                        // Immediate unloading is handled directly in speak(); skip here
+                        // Immediate unloading happens when playback finishes or is cancelled
                         if settings.model_unload_timeout == ModelUnloadTimeout::Immediately {
                             continue;
                         }
@@ -982,6 +982,10 @@ impl TTSManager {
                     ) {
                         error!("Failed to save TTS history entry: {}", e);
                     }
+                }
+
+                if let Some(manager) = app_handle.try_state::<Arc<TTSManager>>() {
+                    manager.maybe_unload_immediately("playback");
                 }
             } else {
                 clear_active_request_if_owned(&active_request, request_id);

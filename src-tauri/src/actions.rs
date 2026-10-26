@@ -208,8 +208,8 @@ fn copied_text_from_probe(copied_text: Option<String>, sentinel: &str) -> Option
 }
 
 /// On Wayland, enigo's synthetic Ctrl+C only reaches XWayland windows, so native
-/// Wayland apps never copy. Fall back to the PRIMARY selection, which every Linux
-/// app (X11 or Wayland) updates whenever the user highlights text.
+/// Wayland apps never copy. Fall back to the PRIMARY selection, which Wayland apps
+/// update whenever the user highlights text.
 #[cfg(not(target_os = "macos"))]
 fn prefer_copied_then_primary(
     copied: Option<String>,
@@ -222,9 +222,23 @@ fn prefer_copied_then_primary(
     })
 }
 
+/// PRIMARY keeps its last value after text is deselected, so it is only used where
+/// Ctrl+C cannot work. On X11 a failed Ctrl+C really means nothing is selected.
+#[cfg(target_os = "linux")]
+fn is_wayland_session(wayland_display: Option<&str>, session_type: Option<&str>) -> bool {
+    wayland_display.is_some_and(|display| !display.is_empty())
+        || session_type.is_some_and(|kind| kind.eq_ignore_ascii_case("wayland"))
+}
+
 #[cfg(target_os = "linux")]
 fn read_primary_selection() -> Option<String> {
     use arboard::{Clipboard, GetExtLinux, LinuxClipboardKind};
+
+    let wayland_display = std::env::var("WAYLAND_DISPLAY").ok();
+    let session_type = std::env::var("XDG_SESSION_TYPE").ok();
+    if !is_wayland_session(wayland_display.as_deref(), session_type.as_deref()) {
+        return None;
+    }
 
     let mut clipboard = Clipboard::new().ok()?;
     clipboard
@@ -377,6 +391,17 @@ mod tests {
     fn falls_back_to_primary_selection_when_copy_fails() {
         let selection = prefer_copied_then_primary(None, || Some("  highlighted text \n".into()));
         assert_eq!(selection, Some("highlighted text".into()));
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn primary_fallback_is_wayland_only() {
+        use super::is_wayland_session;
+        assert!(is_wayland_session(Some("wayland-1"), None));
+        assert!(is_wayland_session(None, Some("wayland")));
+        assert!(!is_wayland_session(None, Some("x11")));
+        assert!(!is_wayland_session(Some(""), None));
+        assert!(!is_wayland_session(None, None));
     }
 
     #[test]
