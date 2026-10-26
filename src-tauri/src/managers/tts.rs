@@ -1514,9 +1514,24 @@ fn open_output_stream(app_handle: &AppHandle) -> std::result::Result<MixerDevice
 /// `CHUNK_HARD_LIMIT_CHARS` can force a mid-sentence split).  This avoids
 /// audible prosody breaks within a sentence.
 const FIRST_CHUNK_TARGET_CHARS: usize = 60;
+const SECOND_CHUNK_TARGET_CHARS: usize = 130;
 const CHUNK_TARGET_CHARS: usize = 260;
 const CHUNK_HARD_LIMIT_CHARS: usize = 320;
 const SENTENCE_JOIN_SOFT_LIMIT_CHARS: usize = 380;
+
+/// Chunk sizes ramp up (short, medium, full) so each chunk finishes synthesizing
+/// before the previous one finishes playing. Jumping straight from the short first
+/// chunk to a full-size one starves the player on slower CPUs.
+fn chunk_target_chars(chunk_index: usize, shorten_first_chunk: bool) -> usize {
+    if !shorten_first_chunk {
+        return CHUNK_TARGET_CHARS;
+    }
+    match chunk_index {
+        0 => FIRST_CHUNK_TARGET_CHARS,
+        1 => SECOND_CHUNK_TARGET_CHARS,
+        _ => CHUNK_TARGET_CHARS,
+    }
+}
 
 fn split_text_for_playback(text: &str, shorten_first_chunk: bool) -> Vec<String> {
     let normalized = normalize_text_whitespace(text);
@@ -1539,11 +1554,7 @@ fn split_text_for_playback(text: &str, shorten_first_chunk: bool) -> Vec<String>
                 continue;
             }
 
-            let current_target = if is_first_chunk && shorten_first_chunk {
-                FIRST_CHUNK_TARGET_CHARS
-            } else {
-                CHUNK_TARGET_CHARS
-            };
+            let current_target = chunk_target_chars(chunks.len(), shorten_first_chunk);
 
             let candidate_len = current_chunk.len() + 1 + part.len();
             if candidate_len <= current_target
@@ -1883,10 +1894,12 @@ fn split_breaks_numeric_connector(text: &str, idx: usize) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        estimate_kokoro_style_index, find_split_index, infer_kokoro_tuning_for_cpu_count,
-        normalize_kokoro_language_code, request_is_active, select_kokoro_voice_for_text,
-        select_voice_for_language, split_into_sentences, split_text_for_playback,
-        take_engine_for_active_request, MAX_PARALLEL_SYNTH_ENGINES,
+        chunk_target_chars, estimate_kokoro_style_index, find_split_index,
+        infer_kokoro_tuning_for_cpu_count, normalize_kokoro_language_code, request_is_active,
+        select_kokoro_voice_for_text, select_voice_for_language, split_into_sentences,
+        split_text_for_playback, take_engine_for_active_request, CHUNK_TARGET_CHARS,
+        FIRST_CHUNK_TARGET_CHARS, MAX_PARALLEL_SYNTH_ENGINES, SECOND_CHUNK_TARGET_CHARS,
+        SENTENCE_JOIN_SOFT_LIMIT_CHARS,
     };
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::{Arc, Mutex};
@@ -1970,6 +1983,31 @@ mod tests {
             "first chunk should be ≤100 chars for fast synthesis, got {} chars",
             chunks[0].len()
         );
+    }
+
+    #[test]
+    fn second_chunk_is_shorter_than_full_chunks_when_fast_first_response_enabled() {
+        let paragraph = "This sentence has about sixty characters in it, roughly. ";
+        let text = paragraph.repeat(20);
+        let chunks = split_text_for_playback(&text, true);
+        assert!(chunks.len() > 3);
+        assert!(chunks[0].len() <= SECOND_CHUNK_TARGET_CHARS);
+        assert!(chunks[1].len() <= SENTENCE_JOIN_SOFT_LIMIT_CHARS / 2);
+        assert!(chunks[2].len() > chunks[1].len());
+        let rejoined = chunks.join(" ");
+        assert_eq!(
+            rejoined.split_whitespace().count(),
+            text.split_whitespace().count()
+        );
+    }
+
+    #[test]
+    fn chunk_targets_ramp_up_only_with_fast_first_response() {
+        assert_eq!(chunk_target_chars(0, true), FIRST_CHUNK_TARGET_CHARS);
+        assert_eq!(chunk_target_chars(1, true), SECOND_CHUNK_TARGET_CHARS);
+        assert_eq!(chunk_target_chars(2, true), CHUNK_TARGET_CHARS);
+        assert_eq!(chunk_target_chars(0, false), CHUNK_TARGET_CHARS);
+        assert_eq!(chunk_target_chars(1, false), CHUNK_TARGET_CHARS);
     }
 
     #[test]

@@ -4117,6 +4117,7 @@ name = "parrot"
 version = "26.2.4"
 dependencies = [
  "anyhow",
+ "arboard",
  "chrono",
  "clap",
  "cpal",
@@ -7138,8 +7139,7 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 [[package]]
 name = "tts-rs"
 version = "2026.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90d49f82f43fbcdf7ae79548e5224977a52437c8795b0ba64b814053d381934d"
+source = "git+https://github.com/js802025/tts-rs?branch=devin%2Fespeak-batching#0cf16aeb15d4e6204799d3d803d69b8e7dd8c605"
 dependencies = [
  "derive_builder",
  "env_logger",
