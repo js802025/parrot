@@ -22,7 +22,6 @@ export const defaultSettings = {
     },
   },
   debug_mode: false,
-  experimental_enabled: false,
   history_limit: 3,
   history_retention_period: "preserve_limit",
   keyboard_implementation: "tauri",
@@ -39,7 +38,6 @@ export const defaultSettings = {
   start_hidden: false,
   tts_shorten_first_chunk: true,
   tts_speed: 1.0,
-  tts_workers: 0,
   update_checks_enabled: true,
 };
 

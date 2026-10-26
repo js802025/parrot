@@ -76,15 +76,14 @@ const settingUpdaters: {
     commands.changeKokoroVoiceSetting((value as string | null) ?? null),
   overlay_position: (value) =>
     commands.changeOverlayPositionSetting(value as string),
+  model_unload_timeout: (value) =>
+    commands.changeModelUnloadTimeoutSetting(value as string),
   debug_mode: (value) => commands.changeDebugModeSetting(value as boolean),
   history_limit: (value) => commands.updateHistoryLimit(value as number),
   log_level: (value) => commands.setLogLevel(value as any),
   app_language: (value) => commands.changeAppLanguageSetting(value as string),
-  experimental_enabled: (value) =>
-    commands.changeExperimentalEnabledSetting(value as boolean),
   show_tray_icon: (value) =>
     commands.changeShowTrayIconSetting(value as boolean),
-  tts_workers: (value) => commands.changeTtsWorkersSetting(value as number),
   tts_speed: (value) => commands.changeTtsSpeedSetting(value as number),
   tts_shorten_first_chunk: (value) =>
     commands.changeTtsShortenFirstChunkSetting(value as boolean),
