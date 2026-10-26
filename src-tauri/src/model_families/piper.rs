@@ -31,7 +31,7 @@ impl ModelFamily for Piper {
                         repo.component(&format!("{onnx}.json"), format!("{onnx_name}.json")),
                     ],
                     (0.7, 0.8),
-                    true,
+                    false,
                 )
             })
             .collect()

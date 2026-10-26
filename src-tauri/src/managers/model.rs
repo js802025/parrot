@@ -215,7 +215,7 @@ impl ModelManager {
             .lock()
             .unwrap()
             .values()
-            .filter(|m| m.is_custom && m.id.starts_with("hf-"))
+            .filter(|m| m.id.starts_with("hf-"))
             .cloned()
             .collect();
         added.sort_by(|a, b| a.id.cmp(&b.id));
@@ -1138,7 +1138,11 @@ fn load_cached_huggingface_models(models_dir: &Path) -> Vec<ModelInfo> {
     }
     if let Ok(json) = fs::read_to_string(models_dir.join(HF_MODELS_FILE)) {
         match serde_json::from_str::<Vec<ModelInfo>>(&json) {
-            Ok(added) => models.extend(added),
+            // Older builds flagged these as custom (local-only) models.
+            Ok(added) => models.extend(added.into_iter().map(|mut m| {
+                m.is_custom = false;
+                m
+            })),
             Err(e) => warn!("Ignoring unreadable {}: {}", HF_MODELS_FILE, e),
         }
     }
@@ -1324,7 +1328,7 @@ mod huggingface_tests {
         assert_eq!(ids, vec!["hf-me--voices--a", "hf-me--voices--b"]);
         assert!(models
             .iter()
-            .all(|m| m.is_custom && matches!(m.engine_type, EngineType::Piper)));
+            .all(|m| !m.is_custom && matches!(m.engine_type, EngineType::Piper)));
         assert_eq!(models[0].size_mb, 4);
         assert_eq!(
             models[0].components[0].url,

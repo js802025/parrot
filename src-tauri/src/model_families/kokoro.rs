@@ -42,7 +42,7 @@ impl ModelFamily for Kokoro {
                 repo.component(voices, "voices-v1.0.bin".to_string()),
             ],
             (0.8, 0.85),
-            true,
+            false,
         )]
     }
 
