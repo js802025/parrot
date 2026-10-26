@@ -1985,6 +1985,54 @@ mod tests {
         );
     }
 
+    fn words(text: &str) -> Vec<&str> {
+        text.split_whitespace().collect()
+    }
+
+    #[test]
+    fn chunking_preserves_every_word_and_punctuation_mark_in_order() {
+        let text = "Hello, world! This is Parrot; it reads text aloud. Does it pause? \
+                    Yes: at commas, periods, and colons. "
+            .repeat(12);
+        for shorten_first_chunk in [true, false] {
+            let chunks = split_text_for_playback(&text, shorten_first_chunk);
+            assert!(chunks.len() > 1);
+            assert_eq!(words(&chunks.join(" ")), words(&text));
+        }
+    }
+
+    #[test]
+    fn chunks_never_exceed_the_hard_limit() {
+        let long_sentence = "word ".repeat(400);
+        let text = format!("{long_sentence}. Short tail sentence.");
+        for shorten_first_chunk in [true, false] {
+            for chunk in split_text_for_playback(&text, shorten_first_chunk) {
+                assert!(!chunk.trim().is_empty());
+                assert!(
+                    chunk.len() <= SENTENCE_JOIN_SOFT_LIMIT_CHARS,
+                    "chunk too long: {} chars",
+                    chunk.len()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn fast_first_response_keeps_first_chunk_short() {
+        let text =
+            "The quick brown fox jumps over the lazy dog, then runs into the forest. ".repeat(10);
+        let fast = split_text_for_playback(&text, true);
+        let normal = split_text_for_playback(&text, false);
+        assert!(fast[0].len() <= FIRST_CHUNK_TARGET_CHARS + 20);
+        assert!(normal[0].len() > fast[0].len());
+    }
+
+    #[test]
+    fn empty_or_whitespace_text_yields_no_chunks() {
+        assert!(split_text_for_playback("", true).is_empty());
+        assert!(split_text_for_playback("   \n\t ", false).is_empty());
+    }
+
     #[test]
     fn second_chunk_is_shorter_than_full_chunks_when_fast_first_response_enabled() {
         let paragraph = "This sentence has about sixty characters in it, roughly. ";
