@@ -141,7 +141,15 @@
         "translation": "Übersetzung",
         "allLanguages": "Alle Sprachen"
       },
-      "noModelsMatch": "Keine Modelle entsprechen diesem Filter."
+      "noModelsMatch": "Keine Modelle entsprechen diesem Filter.",
+      "searchPlaceholder": "Modelle suchen",
+      "huggingFace": {
+        "title": "Von Hugging Face hinzufügen",
+        "placeholder": "owner/model oder huggingface.co-URL",
+        "add": "Hinzufügen",
+        "adding": "Wird hinzugefügt...",
+        "hint": "Unterstützt Piper-Stimmen (.onnx + .onnx.json) und Kokoro-ONNX-Modelle (.onnx + voices-.bin)."
+      }
     },
     "sound": {
       "title": "Ton",

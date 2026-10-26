@@ -141,7 +141,15 @@
         "translation": "ترجمة",
         "allLanguages": "جميع اللغات"
       },
-      "noModelsMatch": "لا توجد نماذج مطابقة لهذا الفلتر."
+      "noModelsMatch": "لا توجد نماذج مطابقة لهذا الفلتر.",
+      "searchPlaceholder": "البحث عن النماذج",
+      "huggingFace": {
+        "title": "إضافة من Hugging Face",
+        "placeholder": "owner/model أو رابط huggingface.co",
+        "add": "إضافة",
+        "adding": "جارٍ الإضافة...",
+        "hint": "يدعم أصوات Piper (‎.onnx + .onnx.json) ونماذج Kokoro ONNX (‎.onnx + ملف voices ‎.bin)."
+      }
     },
     "sound": {
       "title": "الصوت",
