@@ -14,12 +14,11 @@
 - Synthesize with a single Kokoro engine instead of a parallel worker pool
 - Keyboard implementation is a normal Advanced setting (no experimental gate)
 - HandyKeys is the default shortcut backend on macOS and Windows; Linux stays on Tauri
-- Linux window-manager bindings should send `SIGUSR2` to the running process (`pkill -USR2 -n parrot`) instead of a CLI flag
+- Linux window-manager bindings can also send `SIGUSR2` to the running process (`pkill -USR2 -n parrot`); `parrot --toggle-transcription` keeps working
 - Vendor `tts-rs` in-tree at `src-tauri/crates/tts-rs`
 
 ### Removed
 
-- CLI flags (`--toggle-transcription`, `--cancel`, `--start-hidden`, `--no-tray`, `--debug`); use settings and Unix signals instead
 - Worker-thread count setting
 
 ## [26.2.4] - 2026-02-25

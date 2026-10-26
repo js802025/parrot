@@ -2,6 +2,7 @@ mod action_coordinator;
 mod actions;
 mod audio_feedback;
 pub mod audio_toolkit;
+mod cli;
 mod commands;
 mod helpers;
 mod input;
@@ -15,6 +16,7 @@ mod tray;
 mod tray_i18n;
 mod utils;
 
+use cli::CliArgs;
 use tauri_specta::{collect_commands, Builder};
 
 pub use action_coordinator::ActionCoordinator;
@@ -289,6 +291,8 @@ fn trigger_update_check(app: AppHandle) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let cli_args = CliArgs::from_env();
+
     // Parse console logging directives from RUST_LOG, falling back to info-level logging
     // when the variable is unset
     let console_filter = build_console_filter();
@@ -400,8 +404,15 @@ pub fn run() {
     let builder = builder.plugin(tauri_nspanel::init());
 
     builder
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            show_main_window(app);
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            let cli = CliArgs::from_args(args.iter().skip(1));
+            if cli.toggle_transcription {
+                signal_handle::send_action_input(app, "speak", "CLI");
+            } else if cli.cancel {
+                crate::utils::cancel_current_operation(app);
+            } else {
+                show_main_window(app);
+            }
         }))
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
@@ -416,8 +427,15 @@ pub fn run() {
             MacosLauncher::LaunchAgent,
             Some(vec![]),
         ))
+        .manage(cli_args.clone())
         .setup(move |app| {
-            let settings = get_settings(app.handle());
+            let mut settings = get_settings(app.handle());
+
+            // --debug overrides debug_mode and log level (runtime-only, not persisted)
+            if cli_args.debug {
+                settings.debug_mode = true;
+                settings.log_level = settings::LogLevel::Trace;
+            }
 
             let tauri_log_level: tauri_plugin_log::LogLevel = settings.log_level.into();
             let file_log_level: log::Level = tauri_log_level.into();
@@ -429,8 +447,12 @@ pub fn run() {
             let espeak_paths = resolve_bundled_espeak_ng(&app_handle);
             initialize_core_logic(&app_handle, espeak_paths);
 
+            if cli_args.no_tray {
+                tray::set_tray_visibility(&app_handle, false);
+            }
+
             // Show main window only if not starting hidden
-            if !settings.start_hidden {
+            if !(settings.start_hidden || cli_args.start_hidden) {
                 if let Some(main_window) = app_handle.get_webview_window("main") {
                     main_window.show().unwrap();
                     main_window.set_focus().unwrap();
@@ -442,8 +464,9 @@ pub fn run() {
         .on_window_event(|window, event| match event {
             tauri::WindowEvent::CloseRequested { api, .. } => {
                 let settings = get_settings(window.app_handle());
+                let cli = window.app_handle().state::<CliArgs>();
                 // If the tray icon is hidden, quit the app instead of hiding to tray
-                if !settings.show_tray_icon {
+                if !settings.show_tray_icon || cli.no_tray {
                     window.app_handle().exit(0);
                     return;
                 }
