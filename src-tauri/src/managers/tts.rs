@@ -1,3 +1,4 @@
+use crate::model_families::{self, LoadContext, SpeechEngine};
 use anyhow::{anyhow, Result};
 use cpal::traits::{DeviceTrait, HostTrait};
 use log::{debug, error, info, warn};
@@ -12,11 +13,6 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 use tauri::path::BaseDirectory;
 use tauri::{AppHandle, Emitter, Manager};
-use tts_rs::{
-    engines::kokoro::{KokoroEngine, KokoroInferenceParams, KokoroModelParams},
-    engines::piper::PiperEngine,
-    SynthesisEngine, SynthesisResult,
-};
 
 use crate::audio_feedback;
 use crate::managers::history::HistoryManager;
@@ -263,41 +259,18 @@ impl TTSManager {
             );
             let num_threads = infer_kokoro_thread_count();
             info!("{} tuning: num_threads={}", model_name, num_threads);
-            let load_result = match engine_type {
-                EngineType::Kokoro => {
-                    // Pre-optimized ORT graph cache, kept in AppData so bundled
-                    // read-only models work too.
-                    let optimized_cache_path = model_info.as_ref().and_then(|info| {
-                        let dir = model_manager.model_dir(info);
-                        std::fs::create_dir_all(&dir).ok()?;
-                        Some(dir.join("kokoro-optimized.onnx"))
-                    });
-                    let mut kokoro = KokoroEngine::with_espeak(
-                        espeak_ng_path.clone(),
-                        espeak_ng_data_path.clone(),
-                    );
-                    kokoro
-                        .load_model_with_params(
-                            &model_dir,
-                            KokoroModelParams {
-                                num_threads: Some(num_threads),
-                                optimized_model_cache_path: optimized_cache_path,
-                            },
-                        )
-                        .map(|_| TtsEngine::Kokoro(kokoro))
-                        .map_err(|e| e.to_string())
-                }
-                EngineType::Piper => {
-                    let mut piper = PiperEngine::with_espeak(
-                        espeak_ng_path.clone(),
-                        espeak_ng_data_path.clone(),
-                    );
-                    piper
-                        .load_model(&model_dir, Some(num_threads))
-                        .map(|_| TtsEngine::Piper(piper))
-                        .map_err(|e| e.to_string())
-                }
-            };
+            let cache_dir = model_info.as_ref().and_then(|info| {
+                let dir = model_manager.model_dir(info);
+                std::fs::create_dir_all(&dir).ok()?;
+                Some(dir)
+            });
+            let load_result = model_families::family_for(&engine_type).load(&LoadContext {
+                model_dir: &model_dir,
+                cache_dir,
+                espeak_bin: espeak_ng_path.clone(),
+                espeak_data: espeak_ng_data_path.clone(),
+                num_threads,
+            });
 
             let load_error = match load_result {
                 Err(e) => {
@@ -314,12 +287,7 @@ impl TTSManager {
                 }
                 Ok(mut loaded) => {
                     info!("Warming up {} pipeline (espeak-ng + ORT)...", model_name);
-                    let warmup_voice = match &loaded {
-                        TtsEngine::Kokoro(_) => "af_heart".to_string(),
-                        TtsEngine::Piper(_) => {
-                            loaded.list_voices().into_iter().next().unwrap_or_default()
-                        }
-                    };
+                    let warmup_voice = loaded.default_voice();
                     let _ = loaded.synthesize("Hello.", &warmup_voice, 0, 1.0);
                     *engine.lock().unwrap() = Some(loaded);
                     *loaded_model_id.lock().unwrap() = Some(model_id.clone());
@@ -1037,43 +1005,7 @@ fn infer_kokoro_thread_count_for_cpu_count(cpu_count: usize) -> usize {
     cpu_count.saturating_sub(reserved_cores).max(1)
 }
 
-pub enum TtsEngine {
-    Kokoro(KokoroEngine),
-    Piper(PiperEngine),
-}
-
-impl TtsEngine {
-    fn list_voices(&self) -> Vec<String> {
-        match self {
-            Self::Kokoro(engine) => engine.list_voices().into_iter().map(String::from).collect(),
-            Self::Piper(engine) => engine.list_speakers(),
-        }
-    }
-
-    fn synthesize(
-        &mut self,
-        text: &str,
-        voice: &str,
-        style_index: usize,
-        speed: f32,
-    ) -> std::result::Result<SynthesisResult, String> {
-        match self {
-            Self::Kokoro(engine) => engine
-                .synthesize(
-                    text,
-                    Some(KokoroInferenceParams {
-                        voice: voice.to_string(),
-                        style_index: Some(style_index),
-                        speed,
-                    }),
-                )
-                .map_err(|e| e.to_string()),
-            Self::Piper(engine) => engine
-                .synthesize(text, speed, Some(voice))
-                .map_err(|e| e.to_string()),
-        }
-    }
-}
+pub type TtsEngine = Box<dyn SpeechEngine>;
 
 fn engine_is_loaded(engine: &Arc<Mutex<Option<TtsEngine>>>) -> bool {
     engine.lock().map(|guard| guard.is_some()).unwrap_or(false)

@@ -7,6 +7,7 @@ mod commands;
 mod helpers;
 mod input;
 mod managers;
+mod model_families;
 mod overlay;
 mod settings;
 mod shortcut;

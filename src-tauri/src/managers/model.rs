@@ -10,13 +10,15 @@ use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+
+use crate::model_families;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tar::Archive;
 use tauri::{AppHandle, Emitter, Manager};
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type, PartialEq, Eq)]
 pub enum EngineType {
     Kokoro,
     Piper,
@@ -1039,7 +1041,7 @@ impl ModelManager {
     }
 }
 
-fn kokoro_languages() -> Vec<String> {
+pub(crate) fn kokoro_languages() -> Vec<String> {
     [
         "en", "en-gb", "es", "fr", "hi", "it", "ja", "pt", "zh-Hans", "zh-Hant", "yue",
     ]
@@ -1076,25 +1078,25 @@ struct HfRepoInfo {
 }
 
 #[derive(Deserialize)]
-struct HfSibling {
-    rfilename: String,
+pub(crate) struct HfSibling {
+    pub rfilename: String,
     #[serde(default)]
-    size: Option<u64>,
+    pub size: Option<u64>,
 }
 
-fn hf_file_url(repo: &str, path: &str) -> String {
+pub(crate) fn hf_file_url(repo: &str, path: &str) -> String {
     format!("{HF_BASE_URL}/{repo}/resolve/main/{path}")
 }
 
-fn size_mb(bytes: u64) -> u64 {
+pub(crate) fn size_mb(bytes: u64) -> u64 {
     bytes.div_ceil(1024 * 1024)
 }
 
-fn file_name(path: &str) -> String {
+pub(crate) fn file_name(path: &str) -> String {
     path.rsplit('/').next().unwrap_or(path).to_string()
 }
 
-fn downloadable_model(
+pub(crate) fn downloadable_model(
     id: String,
     name: String,
     description: String,
@@ -1224,72 +1226,10 @@ fn parse_hf_repo(input: &str) -> Result<String> {
 /// Detect Piper voices (`<voice>.onnx` + `<voice>.onnx.json`) or a Kokoro
 /// model (`.onnx` + `voices*.bin`) among a repo's files.
 fn models_from_hf_repo(repo: &str, siblings: &[HfSibling]) -> Result<Vec<ModelInfo>> {
-    let has_file = |path: &str| siblings.iter().any(|s| s.rfilename == path);
-    let component = |path: &str, filename: String| ModelComponent {
-        url: hf_file_url(repo, path),
-        filename,
-        size_mb: siblings
-            .iter()
-            .find(|s| s.rfilename == path)
-            .and_then(|s| s.size)
-            .map(size_mb)
-            .unwrap_or(0),
-    };
-    let slug = repo.replace('/', "--");
-
-    let piper: Vec<ModelInfo> = siblings
-        .iter()
-        .map(|s| s.rfilename.as_str())
-        .filter(|path| path.ends_with(".onnx") && has_file(&format!("{path}.json")))
-        .map(|onnx| {
-            let onnx_name = file_name(onnx);
-            let stem = onnx_name.trim_end_matches(".onnx").to_string();
-            downloadable_model(
-                format!("hf-{slug}--{stem}"),
-                stem,
-                format!("Piper voice from {repo}"),
-                EngineType::Piper,
-                Vec::new(),
-                vec![
-                    component(onnx, onnx_name.clone()),
-                    component(&format!("{onnx}.json"), format!("{onnx_name}.json")),
-                ],
-                (0.7, 0.8),
-                true,
-            )
-        })
-        .collect();
-    if !piper.is_empty() {
-        return Ok(piper);
-    }
-
-    let voices = siblings.iter().find(|s| {
-        let name = file_name(&s.rfilename);
-        name.starts_with("voices") && name.ends_with(".bin")
-    });
-    let onnx = siblings
-        .iter()
-        .filter(|s| s.rfilename.ends_with(".onnx"))
-        .min_by_key(|s| s.size.unwrap_or(u64::MAX));
-    if let (Some(onnx), Some(voices)) = (onnx, voices) {
-        return Ok(vec![downloadable_model(
-            format!("hf-{slug}"),
-            repo.rsplit('/').next().unwrap_or(repo).to_string(),
-            format!("Kokoro model from {repo}"),
-            EngineType::Kokoro,
-            kokoro_languages(),
-            vec![
-                component(&onnx.rfilename, file_name(&onnx.rfilename)),
-                component(&voices.rfilename, "voices-v1.0.bin".to_string()),
-            ],
-            (0.8, 0.85),
-            true,
-        )]);
-    }
-
-    anyhow::bail!(
-        "{repo} has no model Parrot can run. Supported: Piper voices (<voice>.onnx + <voice>.onnx.json) and Kokoro ONNX models (.onnx + voices*.bin)."
-    )
+    model_families::detect(&model_families::HfRepo {
+        id: repo,
+        files: siblings,
+    })
 }
 
 #[cfg(test)]
