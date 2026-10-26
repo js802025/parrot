@@ -308,6 +308,7 @@ pub fn run(cli_args: CliArgs) {
         shortcut::change_overlay_position_setting,
         shortcut::change_debug_mode_setting,
         shortcut::change_show_close_button_setting,
+        shortcut::set_model_unload_timeout,
         shortcut::change_experimental_enabled_setting,
         shortcut::suspend_binding,
         shortcut::resume_binding,

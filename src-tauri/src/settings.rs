@@ -96,11 +96,19 @@ pub enum ModelUnloadTimeout {
     #[default]
     Never,
     Immediately,
+    // serde's snake_case turns `Min2` into "min2" while specta exports "min_2",
+    // so spell the wire names out to keep Rust and the TS bindings in agreement.
+    #[serde(rename = "min_2", alias = "min2")]
     Min2,
+    #[serde(rename = "min_5", alias = "min5")]
     Min5,
+    #[serde(rename = "min_10", alias = "min10")]
     Min10,
+    #[serde(rename = "min_15", alias = "min15")]
     Min15,
+    #[serde(rename = "hour_1", alias = "hour1")]
     Hour1,
+    #[serde(rename = "sec_5", alias = "sec5")]
     Sec5, // Debug mode only
 }
 
@@ -497,4 +505,60 @@ pub fn get_history_limit(app: &AppHandle) -> usize {
 pub fn get_history_retention_period(app: &AppHandle) -> HistoryRetentionPeriod {
     let settings = get_settings(app);
     settings.history_retention_period
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn model_unload_timeout_wire_names_match_typescript_bindings() {
+        let cases = [
+            (ModelUnloadTimeout::Never, "never"),
+            (ModelUnloadTimeout::Immediately, "immediately"),
+            (ModelUnloadTimeout::Min2, "min_2"),
+            (ModelUnloadTimeout::Min5, "min_5"),
+            (ModelUnloadTimeout::Min10, "min_10"),
+            (ModelUnloadTimeout::Min15, "min_15"),
+            (ModelUnloadTimeout::Hour1, "hour_1"),
+            (ModelUnloadTimeout::Sec5, "sec_5"),
+        ];
+        let bindings = include_str!("../../src/bindings.ts");
+        for (timeout, wire) in cases {
+            assert_eq!(serde_json::to_value(timeout).unwrap(), wire);
+            let parsed: ModelUnloadTimeout =
+                serde_json::from_value(serde_json::json!(wire)).unwrap();
+            assert_eq!(parsed, timeout);
+            assert!(
+                bindings.contains(&format!("\"{wire}\"")),
+                "{wire} missing from bindings.ts"
+            );
+        }
+    }
+
+    #[test]
+    fn model_unload_timeout_accepts_legacy_names() {
+        for (legacy, expected) in [
+            ("min2", ModelUnloadTimeout::Min2),
+            ("min5", ModelUnloadTimeout::Min5),
+            ("min10", ModelUnloadTimeout::Min10),
+            ("min15", ModelUnloadTimeout::Min15),
+            ("hour1", ModelUnloadTimeout::Hour1),
+            ("sec5", ModelUnloadTimeout::Sec5),
+        ] {
+            let parsed: ModelUnloadTimeout =
+                serde_json::from_value(serde_json::json!(legacy)).unwrap();
+            assert_eq!(parsed, expected);
+        }
+    }
+
+    #[test]
+    fn model_unload_timeout_survives_settings_round_trip() {
+        let mut settings = get_default_settings();
+        settings.model_unload_timeout = ModelUnloadTimeout::Min5;
+        let json = serde_json::to_value(&settings).unwrap();
+        assert_eq!(json["model_unload_timeout"], "min_5");
+        let parsed: AppSettings = serde_json::from_value(json).unwrap();
+        assert_eq!(parsed.model_unload_timeout, ModelUnloadTimeout::Min5);
+    }
 }

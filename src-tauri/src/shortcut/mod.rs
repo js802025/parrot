@@ -462,6 +462,18 @@ fn initialize_handy_keys_with_rollback(app: &AppHandle) -> Result<bool, String> 
 
 #[tauri::command]
 #[specta::specta]
+pub fn set_model_unload_timeout(
+    app: AppHandle,
+    timeout: settings::ModelUnloadTimeout,
+) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    settings.model_unload_timeout = timeout;
+    settings::write_settings(&app, settings);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn change_show_close_button_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
     let mut settings = settings::get_settings(&app);
     settings.show_close_button = enabled;
