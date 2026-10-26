@@ -560,10 +560,7 @@ pub fn change_overlay_position_setting(app: AppHandle, position: String) -> Resu
 
 #[tauri::command]
 #[specta::specta]
-pub fn change_model_unload_timeout_setting(
-    app: AppHandle,
-    timeout: String,
-) -> Result<(), String> {
+pub fn change_model_unload_timeout_setting(app: AppHandle, timeout: String) -> Result<(), String> {
     let mut settings = settings::get_settings(&app);
     settings.model_unload_timeout = ModelUnloadTimeout::from_setting_value(&timeout)?;
     settings::write_settings(&app, settings);

@@ -685,8 +685,7 @@ impl TTSManager {
                 // the sink now) rather than chunk_audio_seconds (pre-trim) so
                 // the overlay text updater's sleep timing doesn't drift ahead
                 // of real playback by CROSSFADE_SAMPLES on every chunk.
-                let appended_audio_seconds =
-                    samples.len() as f32 / synthesis.sample_rate as f32;
+                let appended_audio_seconds = samples.len() as f32 / synthesis.sample_rate as f32;
                 shared_sink.append(SamplesBuffer::new(
                     NonZero::new(1u16).unwrap(),
                     NonZero::new(synthesis.sample_rate).unwrap(),

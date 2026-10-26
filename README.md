@@ -87,15 +87,15 @@ The pause/resume shortcut is only active while Parrot is playing. It can be cust
 
 ## Settings Overview
 
-| Category               | Options                                                                    |
-| ---------------------- | -------------------------------------------------------------------------- |
-| **General**            | Shortcuts, TTS language, voice, output device, audio feedback              |
-| **Models**             | Download, switch, and delete TTS models                                    |
+| Category               | Options                                                                                             |
+| ---------------------- | --------------------------------------------------------------------------------------------------- |
+| **General**            | Shortcuts, TTS language, voice, output device, audio feedback                                       |
+| **Models**             | Download, switch, and delete TTS models                                                             |
 | **Advanced → App**     | Start hidden, autostart, tray icon, overlay position, model unload timeout, keyboard implementation |
-| **Advanced → Speech**  | Playback speed, fast first response                                        |
-| **Advanced → History** | Entry limit, auto-delete period                                            |
-| **History**            | Browse, replay, copy, and delete past utterances                           |
-| **Debug**              | Log level, diagnostics                                                     |
+| **Advanced → Speech**  | Playback speed, fast first response                                                                 |
+| **Advanced → History** | Entry limit, auto-delete period                                                                     |
+| **History**            | Browse, replay, copy, and delete past utterances                                                    |
+| **Debug**              | Log level, diagnostics                                                                              |
 
 ## Linux Notes
 

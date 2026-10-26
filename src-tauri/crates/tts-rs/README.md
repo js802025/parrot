@@ -19,8 +19,8 @@ tts-rs = { version = "2026.2.1", features = ["kokoro"] }
 
 ### Available Features
 
-| Feature | Description | Dependencies |
-|---------|-------------|--------------|
+| Feature  | Description              | Dependencies            |
+| -------- | ------------------------ | ----------------------- |
 | `kokoro` | Kokoro neural TTS (ONNX) | `ort`, `ndarray`, `zip` |
 
 No features are enabled by default. You must opt in explicitly.
@@ -29,12 +29,12 @@ No features are enabled by default. You must opt in explicitly.
 
 Download the following files from the [taylorchu/kokoro-onnx v0.2.0 release](https://github.com/taylorchu/kokoro-onnx/releases/tag/v0.2.0):
 
-| File | Size | Description |
-|------|------|-------------|
-| `kokoro-v1.0.onnx` | 310 MB | Full precision (f32) |
-| `kokoro-v1.0.fp16.onnx` | 169 MB | Half precision (f16) |
-| `kokoro-v1.0.int8.onnx` | 88 MB | Quantized (int8) — recommended |
-| `voices-v1.0.bin` | — | Style vectors for all 26 voices (required) |
+| File                    | Size   | Description                                |
+| ----------------------- | ------ | ------------------------------------------ |
+| `kokoro-v1.0.onnx`      | 310 MB | Full precision (f32)                       |
+| `kokoro-v1.0.fp16.onnx` | 169 MB | Half precision (f16)                       |
+| `kokoro-v1.0.int8.onnx` | 88 MB  | Quantized (int8) — recommended             |
+| `voices-v1.0.bin`       | —      | Style vectors for all 26 voices (required) |
 
 The `voices-v1.0.bin` file is required regardless of which model variant you use. Place all downloaded files in the same directory and pass that path to `load_model`.
 
