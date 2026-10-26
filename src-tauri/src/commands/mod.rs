@@ -204,7 +204,8 @@ pub fn get_model_status(
     tts_manager: State<'_, Arc<TTSManager>>,
 ) -> Result<ModelStatus, String> {
     let model_info = model_manager
-        .get_model_info(TTS_MODEL_ID)
+        .get_model_info(&crate::managers::tts::selected_model_id(&app))
+        .or_else(|| model_manager.get_model_info(TTS_MODEL_ID))
         .ok_or_else(|| "TTS model not found".to_string())?;
 
     let app_data_model_dir = app

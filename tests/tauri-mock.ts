@@ -93,7 +93,16 @@ export async function mockTauri(
         convertFileSrc: (path: string) => path,
         invoke: async (cmd: string, args: unknown) => {
           calls.push({ cmd, args });
-          if (cmd in responses) return responses[cmd];
+          if (cmd in responses) {
+            const response = responses[cmd] as any;
+            if (
+              response &&
+              typeof response === "object" &&
+              "__error" in response
+            )
+              throw response.__error;
+            return response;
+          }
           if (cmd === "plugin:event|listen") return nextId++;
           const name = cmd.split("|").pop() ?? cmd;
           if (name.startsWith("get_") && listLike.test(name)) return [];

@@ -1,4 +1,4 @@
-//! # transcribe-rs
+//! # tts-rs
 //!
 //! A Rust library providing text-to-speech synthesis using the Kokoro engine.
 //!
@@ -12,12 +12,12 @@
 //!
 //! ```toml
 //! [dependencies]
-//! transcribe-rs = { version = "0.2", features = ["kokoro"] }
+//! tts-rs = { version = "0.2", features = ["kokoro"] }
 //! ```
 //!
 //! ```ignore
 //! use std::path::PathBuf;
-//! use transcribe_rs::{engines::kokoro::KokoroEngine, SynthesisEngine};
+//! use tts_rs::{engines::kokoro::KokoroEngine, SynthesisEngine};
 //!
 //! let mut engine = KokoroEngine::new();
 //! engine.load_model(&PathBuf::from("models/kokoro-v1.0"))?;
