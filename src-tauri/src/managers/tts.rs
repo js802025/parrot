@@ -1886,7 +1886,8 @@ mod tests {
         estimate_kokoro_style_index, find_split_index, infer_kokoro_tuning_for_cpu_count,
         normalize_kokoro_language_code, request_is_active, select_kokoro_voice_for_text,
         select_voice_for_language, split_into_sentences, split_text_for_playback,
-        take_engine_for_active_request, MAX_PARALLEL_SYNTH_ENGINES,
+        take_engine_for_active_request, FIRST_CHUNK_TARGET_CHARS, MAX_PARALLEL_SYNTH_ENGINES,
+        SENTENCE_JOIN_SOFT_LIMIT_CHARS,
     };
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::{Arc, Mutex};
@@ -1970,6 +1971,54 @@ mod tests {
             "first chunk should be ≤100 chars for fast synthesis, got {} chars",
             chunks[0].len()
         );
+    }
+
+    fn words(text: &str) -> Vec<&str> {
+        text.split_whitespace().collect()
+    }
+
+    #[test]
+    fn chunking_preserves_every_word_and_punctuation_mark_in_order() {
+        let text = "Hello, world! This is Parrot; it reads text aloud. Does it pause? \
+                    Yes: at commas, periods, and colons. "
+            .repeat(12);
+        for shorten_first_chunk in [true, false] {
+            let chunks = split_text_for_playback(&text, shorten_first_chunk);
+            assert!(chunks.len() > 1);
+            assert_eq!(words(&chunks.join(" ")), words(&text));
+        }
+    }
+
+    #[test]
+    fn chunks_never_exceed_the_hard_limit() {
+        let long_sentence = "word ".repeat(400);
+        let text = format!("{long_sentence}. Short tail sentence.");
+        for shorten_first_chunk in [true, false] {
+            for chunk in split_text_for_playback(&text, shorten_first_chunk) {
+                assert!(!chunk.trim().is_empty());
+                assert!(
+                    chunk.len() <= SENTENCE_JOIN_SOFT_LIMIT_CHARS,
+                    "chunk too long: {} chars",
+                    chunk.len()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn fast_first_response_keeps_first_chunk_short() {
+        let text =
+            "The quick brown fox jumps over the lazy dog, then runs into the forest. ".repeat(10);
+        let fast = split_text_for_playback(&text, true);
+        let normal = split_text_for_playback(&text, false);
+        assert!(fast[0].len() <= FIRST_CHUNK_TARGET_CHARS + 20);
+        assert!(normal[0].len() > fast[0].len());
+    }
+
+    #[test]
+    fn empty_or_whitespace_text_yields_no_chunks() {
+        assert!(split_text_for_playback("", true).is_empty());
+        assert!(split_text_for_playback("   \n\t ", false).is_empty());
     }
 
     #[test]
