@@ -71,6 +71,9 @@ fn update_gtk_layer_shell_anchors(overlay_window: &tauri::webview::WebviewWindow
     let _ = overlay_window.run_on_main_thread(move || {
         // Try to get the GTK window from the Tauri webview
         if let Ok(gtk_window) = window_clone.gtk_window() {
+            if !gtk_window.is_layer_window() {
+                return;
+            }
             let settings = settings::get_settings(window_clone.app_handle());
             match settings.overlay_position {
                 OverlayPosition::Top => {
@@ -347,6 +350,14 @@ pub fn create_speaking_overlay(app_handle: &AppHandle) {
 }
 
 fn show_overlay_state(app_handle: &AppHandle, state: &str, text: Option<String>) {
+    // Callers run on TTS worker threads, but monitor and window queries go
+    // through GDK/Xlib, which crashes on X11 when used off the main thread.
+    let app = app_handle.clone();
+    let state = state.to_string();
+    let _ = app_handle.run_on_main_thread(move || show_overlay_state_now(&app, &state, text));
+}
+
+fn show_overlay_state_now(app_handle: &AppHandle, state: &str, text: Option<String>) {
     // Check if overlay should be shown based on position setting
     let settings = settings::get_settings(app_handle);
     if settings.overlay_position == OverlayPosition::None {

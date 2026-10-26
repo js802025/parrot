@@ -52,9 +52,19 @@ pub fn init_shortcuts(app: &AppHandle) {
     }
 }
 
+fn play_pause_disabled(settings: &settings::AppSettings) -> bool {
+    settings
+        .bindings
+        .get("play_pause")
+        .is_none_or(|binding| binding.current_binding.eq_ignore_ascii_case("disabled"))
+}
+
 /// Register the play/pause shortcut (called when speaking starts)
 pub fn register_play_pause_shortcut(app: &AppHandle) {
     let settings = get_settings(app);
+    if play_pause_disabled(&settings) {
+        return;
+    }
     match settings.keyboard_implementation {
         KeyboardImplementation::Tauri => tauri_impl::register_play_pause_shortcut(app),
         KeyboardImplementation::HandyKeys => handy_keys::register_play_pause_shortcut(app),
@@ -64,6 +74,9 @@ pub fn register_play_pause_shortcut(app: &AppHandle) {
 /// Unregister the play/pause shortcut (called when speaking stops)
 pub fn unregister_play_pause_shortcut(app: &AppHandle) {
     let settings = get_settings(app);
+    if play_pause_disabled(&settings) {
+        return;
+    }
     match settings.keyboard_implementation {
         KeyboardImplementation::Tauri => tauri_impl::unregister_play_pause_shortcut(app),
         KeyboardImplementation::HandyKeys => handy_keys::unregister_play_pause_shortcut(app),
@@ -459,6 +472,18 @@ fn initialize_handy_keys_with_rollback(app: &AppHandle) -> Result<bool, String> 
 // ============================================================================
 // General Settings Commands
 // ============================================================================
+
+#[tauri::command]
+#[specta::specta]
+pub fn set_model_unload_timeout(
+    app: AppHandle,
+    timeout: settings::ModelUnloadTimeout,
+) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    settings.model_unload_timeout = timeout;
+    settings::write_settings(&app, settings);
+    Ok(())
+}
 
 #[tauri::command]
 #[specta::specta]
