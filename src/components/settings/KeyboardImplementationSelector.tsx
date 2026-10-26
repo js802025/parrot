@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { SettingContainer } from "../ui/SettingContainer";
 import { Dropdown, type DropdownOption } from "../ui/Dropdown";
 import { useSettings } from "../../hooks/useSettings";
+import { useOsType } from "../../hooks/useOsType";
 import { commands } from "@/bindings";
 import { toast } from "sonner";
 
@@ -21,6 +22,7 @@ export const KeyboardImplementationSelector: React.FC<
 > = ({ descriptionMode = "tooltip", grouped = false }) => {
   const { t } = useTranslation();
   const { getSetting, isUpdating, refreshSettings } = useSettings();
+  const osType = useOsType();
   const currentImplementation =
     getSetting("keyboard_implementation") ?? "tauri";
 
@@ -50,6 +52,12 @@ export const KeyboardImplementationSelector: React.FC<
       toast.error(String(error));
     }
   };
+
+  // HandyKeys is unsupported on Linux; only show the selector there so
+  // users who already enabled it can switch back to Tauri.
+  if (osType === "linux" && currentImplementation !== "handy_keys") {
+    return null;
+  }
 
   return (
     <SettingContainer
