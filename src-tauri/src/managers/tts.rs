@@ -1505,31 +1505,48 @@ fn open_output_stream(app_handle: &AppHandle) -> std::result::Result<MixerDevice
         .map_err(|e| format!("Failed to open default audio output: {}", e))
 }
 
-/// Soft target for the first chunk.  The chunker stops adding sentences once
-/// it exceeds this limit.  Kept small so chunk-1 synthesis finishes quickly
-/// (~1–2 s at typical RTF 0.50), giving near-instant playback start.
-///
-/// Importantly this is a *sentence-level* target: a single sentence that is
-/// longer than this value is never split mid-sentence (only the regular
-/// `CHUNK_HARD_LIMIT_CHARS` can force a mid-sentence split).  This avoids
-/// audible prosody breaks within a sentence.
+/// Soft target for the first chunk, kept small so chunk-1 synthesis finishes
+/// quickly and playback starts almost immediately.
 const FIRST_CHUNK_TARGET_CHARS: usize = 60;
-const SECOND_CHUNK_TARGET_CHARS: usize = 130;
 const CHUNK_TARGET_CHARS: usize = 260;
 const CHUNK_HARD_LIMIT_CHARS: usize = 320;
 const SENTENCE_JOIN_SOFT_LIMIT_CHARS: usize = 380;
 
-/// Chunk sizes ramp up (short, medium, full) so each chunk finishes synthesizing
-/// before the previous one finishes playing. Jumping straight from the short first
-/// chunk to a full-size one starves the player on slower CPUs.
-fn chunk_target_chars(chunk_index: usize, shorten_first_chunk: bool) -> usize {
+/// Chunk sizes ramp up: each chunk is at most as long as all the text queued
+/// before it, so its synthesis overlaps playback of the earlier chunks instead
+/// of starving the player. Jumping straight from a short first chunk to a
+/// full-size one causes audible stalls on near-realtime CPUs.
+fn chunk_target_chars(chars_already_chunked: usize, shorten_first_chunk: bool) -> usize {
     if !shorten_first_chunk {
         return CHUNK_TARGET_CHARS;
     }
-    match chunk_index {
-        0 => FIRST_CHUNK_TARGET_CHARS,
-        1 => SECOND_CHUNK_TARGET_CHARS,
-        _ => CHUNK_TARGET_CHARS,
+    chars_already_chunked.clamp(FIRST_CHUNK_TARGET_CHARS, CHUNK_TARGET_CHARS)
+}
+
+fn chunked_chars(chunks: &[String]) -> usize {
+    chunks.iter().map(String::len).sum()
+}
+
+/// Pushes `text` as one or more chunks. While the ramp is active, text longer
+/// than the current target is split at a natural clause boundary (never
+/// mid-word) so early chunks stay small enough to keep playback fed.
+fn push_ramped_chunk(chunks: &mut Vec<String>, text: &str, shorten_first_chunk: bool) {
+    let mut rest = text.trim().to_string();
+    loop {
+        let target = chunk_target_chars(chunked_chars(chunks), shorten_first_chunk);
+        if target >= CHUNK_TARGET_CHARS || rest.len() <= target {
+            break;
+        }
+        match split_at_clause_boundary(&rest, target) {
+            (head, Some(tail)) => {
+                chunks.push(head);
+                rest = tail;
+            }
+            (_, None) => break,
+        }
+    }
+    if !rest.is_empty() {
+        chunks.push(rest);
     }
 }
 
@@ -1542,7 +1559,6 @@ fn split_text_for_playback(text: &str, shorten_first_chunk: bool) -> Vec<String>
     let sentences = split_into_sentences(&normalized);
     let mut chunks: Vec<String> = Vec::new();
     let mut current_chunk = String::new();
-    let mut is_first_chunk = true;
 
     for sentence in sentences {
         let sentence_parts =
@@ -1554,7 +1570,7 @@ fn split_text_for_playback(text: &str, shorten_first_chunk: bool) -> Vec<String>
                 continue;
             }
 
-            let current_target = chunk_target_chars(chunks.len(), shorten_first_chunk);
+            let current_target = chunk_target_chars(chunked_chars(&chunks), shorten_first_chunk);
 
             let candidate_len = current_chunk.len() + 1 + part.len();
             if candidate_len <= current_target
@@ -1566,43 +1582,13 @@ fn split_text_for_playback(text: &str, shorten_first_chunk: bool) -> Vec<String>
                 continue;
             }
 
-            // Flush current_chunk.  For the first chunk, if the single sentence
-            // inside it is too long for fast synthesis, split it at a natural
-            // clause boundary (comma, semicolon, colon, closing paren/bracket).
-            // This avoids the jarring mid-word prosody breaks that arbitrary
-            // splits cause, while still keeping time-to-first-audio low.
-            if is_first_chunk
-                && shorten_first_chunk
-                && current_chunk.len() > FIRST_CHUNK_TARGET_CHARS
-            {
-                let (head, tail) =
-                    split_at_clause_boundary(&current_chunk, FIRST_CHUNK_TARGET_CHARS);
-                chunks.push(head);
-                if let Some(remainder) = tail {
-                    chunks.push(remainder);
-                }
-            } else {
-                chunks.push(current_chunk.trim().to_string());
-            }
-            is_first_chunk = false;
+            push_ramped_chunk(&mut chunks, &current_chunk, shorten_first_chunk);
             current_chunk.clear();
             current_chunk.push_str(part);
         }
     }
 
-    // Flush the last accumulated chunk.
-    let trailing = current_chunk.trim();
-    if !trailing.is_empty() {
-        if is_first_chunk && shorten_first_chunk && trailing.len() > FIRST_CHUNK_TARGET_CHARS {
-            let (head, tail) = split_at_clause_boundary(trailing, FIRST_CHUNK_TARGET_CHARS);
-            chunks.push(head);
-            if let Some(remainder) = tail {
-                chunks.push(remainder);
-            }
-        } else {
-            chunks.push(trailing.to_string());
-        }
-    }
+    push_ramped_chunk(&mut chunks, &current_chunk, shorten_first_chunk);
 
     if chunks.is_empty() {
         vec![normalized]
@@ -1898,8 +1884,7 @@ mod tests {
         infer_kokoro_tuning_for_cpu_count, normalize_kokoro_language_code, request_is_active,
         select_kokoro_voice_for_text, select_voice_for_language, split_into_sentences,
         split_text_for_playback, take_engine_for_active_request, CHUNK_TARGET_CHARS,
-        FIRST_CHUNK_TARGET_CHARS, MAX_PARALLEL_SYNTH_ENGINES, SECOND_CHUNK_TARGET_CHARS,
-        SENTENCE_JOIN_SOFT_LIMIT_CHARS,
+        FIRST_CHUNK_TARGET_CHARS, MAX_PARALLEL_SYNTH_ENGINES, SENTENCE_JOIN_SOFT_LIMIT_CHARS,
     };
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::{Arc, Mutex};
@@ -2034,28 +2019,92 @@ mod tests {
     }
 
     #[test]
-    fn second_chunk_is_shorter_than_full_chunks_when_fast_first_response_enabled() {
+    fn early_chunks_ramp_up_to_full_size_when_fast_first_response_enabled() {
         let paragraph = "This sentence has about sixty characters in it, roughly. ";
         let text = paragraph.repeat(20);
         let chunks = split_text_for_playback(&text, true);
         assert!(chunks.len() > 3);
-        assert!(chunks[0].len() <= SECOND_CHUNK_TARGET_CHARS);
-        assert!(chunks[1].len() <= SENTENCE_JOIN_SOFT_LIMIT_CHARS / 2);
-        assert!(chunks[2].len() > chunks[1].len());
-        let rejoined = chunks.join(" ");
-        assert_eq!(
-            rejoined.split_whitespace().count(),
-            text.split_whitespace().count()
-        );
+        assert!(chunks[0].len() <= FIRST_CHUNK_TARGET_CHARS);
+        let mut queued = 0;
+        for chunk in &chunks[..chunks.len() - 1] {
+            assert!(chunk.len() <= queued.max(FIRST_CHUNK_TARGET_CHARS) + paragraph.len());
+            queued += chunk.len();
+        }
+        assert!(chunks
+            .iter()
+            .any(|chunk| chunk.len() > CHUNK_TARGET_CHARS / 2));
+        assert_eq!(words(&chunks.join(" ")), words(&text));
     }
 
     #[test]
     fn chunk_targets_ramp_up_only_with_fast_first_response() {
         assert_eq!(chunk_target_chars(0, true), FIRST_CHUNK_TARGET_CHARS);
-        assert_eq!(chunk_target_chars(1, true), SECOND_CHUNK_TARGET_CHARS);
-        assert_eq!(chunk_target_chars(2, true), CHUNK_TARGET_CHARS);
+        assert_eq!(chunk_target_chars(100, true), 100);
+        assert_eq!(chunk_target_chars(10_000, true), CHUNK_TARGET_CHARS);
         assert_eq!(chunk_target_chars(0, false), CHUNK_TARGET_CHARS);
-        assert_eq!(chunk_target_chars(1, false), CHUNK_TARGET_CHARS);
+        assert_eq!(chunk_target_chars(100, false), CHUNK_TARGET_CHARS);
+    }
+
+    /// Models the synthesis pipeline: `workers` threads pull chunks in order,
+    /// audio length is proportional to chunk length, and synthesis takes
+    /// `rtf` times the audio length. Returns total seconds the player waits
+    /// for a chunk after playback has started.
+    fn simulated_playback_stall_secs(chunks: &[String], workers: usize, rtf: f32) -> f32 {
+        const AUDIO_SECS_PER_CHAR: f32 = 0.072;
+        let mut worker_free_at = vec![0.0_f32; workers];
+        let mut ready_at = Vec::with_capacity(chunks.len());
+        for chunk in chunks {
+            let (idx, start) = worker_free_at
+                .iter()
+                .copied()
+                .enumerate()
+                .min_by(|a, b| a.1.total_cmp(&b.1))
+                .unwrap();
+            let done = start + rtf * chunk.len() as f32 * AUDIO_SECS_PER_CHAR;
+            worker_free_at[idx] = done;
+            ready_at.push(done);
+        }
+        let mut playhead = ready_at[0];
+        let mut stall = 0.0;
+        for (chunk, ready) in chunks.iter().zip(ready_at) {
+            if ready > playhead {
+                stall += ready - playhead;
+                playhead = ready;
+            }
+            playhead += chunk.len() as f32 * AUDIO_SECS_PER_CHAR;
+        }
+        stall
+    }
+
+    // Text and timings from the issue #1 / #7 repro: Kokoro ran at rtf ~0.8-0.9
+    // with 2 workers, and the 180-char third chunk left a ~3s silence.
+    const MULTI_PARAGRAPH_TEXT: &str = "The first paragraph is short, but it has commas, semicolons; and a question? It also ends with a period.
+
+The second paragraph keeps going, with more clauses, more commas, and more pauses, so that the text is split into many segments before phonemization.
+
+Finally, the third paragraph closes the test. If you can hear this sentence, playback reached the end!";
+
+    #[test]
+    fn multi_paragraph_playback_does_not_stall_at_near_realtime_synthesis() {
+        let chunks = split_text_for_playback(MULTI_PARAGRAPH_TEXT, true);
+        assert_eq!(words(&chunks.join(" ")), words(MULTI_PARAGRAPH_TEXT));
+        for rtf in [0.5, 0.7, 0.9] {
+            let stall = simulated_playback_stall_secs(&chunks, 2, rtf);
+            assert!(
+                stall < 0.25,
+                "rtf={rtf}: player stalled {stall:.2}s with chunks {chunks:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn long_text_playback_does_not_stall_at_near_realtime_synthesis() {
+        let text = MULTI_PARAGRAPH_TEXT.repeat(6);
+        let chunks = split_text_for_playback(&text, true);
+        for rtf in [0.5, 0.7, 0.9] {
+            let stall = simulated_playback_stall_secs(&chunks, 2, rtf);
+            assert!(stall < 0.25, "rtf={rtf}: player stalled {stall:.2}s");
+        }
     }
 
     #[test]
