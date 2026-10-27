@@ -2,10 +2,18 @@
 
 ## [Unreleased]
 
+## [26.10.1] - 2026-10-26
+
+### Added
+
+- Hugging Face model picker: browse and download Piper voices, or add a Kokoro/Piper repo by `owner/model`
+- Piper TTS engine alongside Kokoro, behind a pluggable model-family registry
+
 ### Fixed
 
 - Persist and restore the model unload timeout setting after restart (GitHub issue #3)
 - Hide Windows console windows spawned by espeak-ng during phonemization (GitHub issue #7)
+- Read contractions like "don't" and "it's" as single words instead of splitting them at the apostrophe
 - Keep HandyKeys shortcuts working when the main window is unfocused
 - Animate overlay resize and keep overlay text in sync with playback after chunk crossfades
 
