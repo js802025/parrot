@@ -301,3 +301,16 @@ By contributing to Parrot, you agree that your contributions will be licensed un
 ---
 
 **Thank you for contributing to Parrot!** Your efforts help make private, on-device text-to-speech more accessible and extensible for everyone.
+
+## Adding a TTS model family
+
+Each kind of model (Kokoro, Piper, ...) lives in `src-tauri/src/model_families/`. To add one:
+
+1. Implement the engine in `src-tauri/crates/tts-rs/src/engines/` (load + synthesize to `SynthesisResult`).
+2. Add a variant to `EngineType` in `src-tauri/src/managers/model.rs`.
+3. Add `src-tauri/src/model_families/<family>.rs` implementing `ModelFamily`:
+   - `detect` returns the models it can run from a Hugging Face repo's file list (empty if none),
+   - `load` returns a `Box<dyn SpeechEngine>`.
+4. List it in `FAMILIES` in `src-tauri/src/model_families/mod.rs`.
+
+Downloads, "Add from Hugging Face", playback, history and the Models page then work for the new family without further changes.

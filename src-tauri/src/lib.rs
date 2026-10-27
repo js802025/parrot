@@ -7,6 +7,7 @@ mod commands;
 mod helpers;
 mod input;
 mod managers;
+mod model_families;
 mod overlay;
 mod settings;
 mod shortcut;
@@ -346,6 +347,8 @@ pub fn run() {
         commands::models::is_model_loading,
         commands::models::has_any_models_available,
         commands::models::has_any_models_or_downloads,
+        commands::models::refresh_model_catalog,
+        commands::models::add_huggingface_model,
         commands::get_model_status,
         commands::preload_tts_model,
         commands::toggle_tts_pause,

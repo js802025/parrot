@@ -1,3 +1,4 @@
+use crate::model_families::{self, LoadContext, SpeechEngine};
 use anyhow::{anyhow, Result};
 use cpal::traits::{DeviceTrait, HostTrait};
 use log::{debug, error, info, warn};
@@ -12,19 +13,15 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 use tauri::path::BaseDirectory;
 use tauri::{AppHandle, Emitter, Manager};
-use tts_rs::{
-    engines::kokoro::{KokoroEngine, KokoroInferenceParams, KokoroModelParams},
-    SynthesisEngine,
-};
 
 use crate::audio_feedback;
 use crate::managers::history::HistoryManager;
-use crate::managers::model::ModelManager;
+use crate::managers::model::{EngineType, ModelManager};
 use crate::settings::{get_settings, ModelUnloadTimeout};
 use crate::text_normalization::normalize_text_for_tts;
 use crate::utils::{hide_speaking_overlay, show_processing_overlay, show_speaking_overlay};
 
-/// The model ID managed by this TTS manager.
+/// The built-in default model.
 pub const MODEL_ID: &str = "kokoro";
 const ENGINE_LOCK_POLL_INTERVAL: Duration = Duration::from_millis(2);
 /// Number of samples to crossfade between text-level chunks (10ms @ 24kHz).
@@ -54,7 +51,8 @@ struct ActiveSink {
 }
 
 pub struct TTSManager {
-    engine: Arc<Mutex<Option<KokoroEngine>>>,
+    engine: Arc<Mutex<Option<TtsEngine>>>,
+    loaded_model_id: Arc<Mutex<Option<String>>>,
     app_handle: AppHandle,
     model_manager: Arc<ModelManager>,
     is_loading: Arc<Mutex<bool>>,
@@ -143,6 +141,7 @@ impl TTSManager {
 
         Ok(Self {
             engine,
+            loaded_model_id: Arc::new(Mutex::new(None)),
             app_handle: app_handle.clone(),
             model_manager,
             is_loading,
@@ -215,17 +214,29 @@ impl TTSManager {
         let condvar = Arc::clone(&self.loading_condvar);
         let app_handle = self.app_handle.clone();
         let model_manager = Arc::clone(&self.model_manager);
+        let loaded_model_id = Arc::clone(&self.loaded_model_id);
+        let model_id = selected_model_id(&self.app_handle);
         let espeak_ng_path = self.espeak_ng_path.clone();
         let espeak_ng_data_path = self.espeak_ng_data_path.clone();
 
         thread::spawn(move || {
             // Resolve human-readable name from ModelManager; fall back to ID if missing.
-            let model_name = model_manager
-                .get_model_info(MODEL_ID)
-                .map(|info| info.name)
-                .unwrap_or_else(|| MODEL_ID.to_string());
+            let model_info = model_manager.get_model_info(&model_id);
+            let model_name = model_info
+                .as_ref()
+                .map(|info| info.name.clone())
+                .unwrap_or_else(|| model_id.clone());
+            let engine_type = model_info
+                .as_ref()
+                .map(|info| info.engine_type.clone())
+                .unwrap_or(EngineType::Kokoro);
 
-            let model_dir = match resolve_kokoro_model_dir(&app_handle) {
+            let model_dir = match model_info
+                .as_ref()
+                .filter(|_| model_id != MODEL_ID)
+                .map(|info| Ok(model_manager.model_dir(info)))
+                .unwrap_or_else(|| resolve_kokoro_model_dir(&app_handle))
+            {
                 Ok(dir) => dir,
                 Err(e) => {
                     error!("{}", e);
@@ -241,48 +252,47 @@ impl TTSManager {
                 "model-state-changed",
                 ModelStateEvent {
                     event_type: "loading_started".to_string(),
-                    model_id: Some(MODEL_ID.to_string()),
+                    model_id: Some(model_id.clone()),
                     model_name: Some(model_name.clone()),
                     error: None,
                 },
             );
-            // Resolve the cache path for the pre-optimized ORT graph.
-            // Always stored in AppData so it works even when the source model is
-            // in read-only bundled resources.  The cache is invalidated automatically
-            // when the model directory is deleted (e.g. on model re-download).
-            let optimized_cache_path = app_handle.path().app_data_dir().ok().map(|dir| {
-                let cache_dir = dir.join("models").join("kokoro");
-                let _ = std::fs::create_dir_all(&cache_dir);
-                cache_dir.join("kokoro-optimized.onnx")
-            });
             let num_threads = infer_kokoro_thread_count();
-            info!("Kokoro tuning: num_threads={}", num_threads);
+            info!("{} tuning: num_threads={}", model_name, num_threads);
+            let cache_dir = model_info.as_ref().and_then(|info| {
+                let dir = model_manager.model_dir(info);
+                std::fs::create_dir_all(&dir).ok()?;
+                Some(dir)
+            });
+            let load_result = model_families::family_for(&engine_type).load(&LoadContext {
+                model_dir: &model_dir,
+                cache_dir,
+                espeak_bin: espeak_ng_path.clone(),
+                espeak_data: espeak_ng_data_path.clone(),
+                num_threads,
+            });
 
-            let mut kokoro =
-                KokoroEngine::with_espeak(espeak_ng_path.clone(), espeak_ng_data_path.clone());
-            let load_result = kokoro.load_model_with_params(
-                &model_dir,
-                KokoroModelParams {
-                    num_threads: Some(num_threads),
-                    optimized_model_cache_path: optimized_cache_path.clone(),
-                },
-            );
-
-            let load_error = if let Err(e) = &load_result {
-                let engine_error = format!(
-                    "Failed to load {} from {}: {}",
-                    model_name,
-                    model_dir.display(),
-                    e
-                );
-                error!("{}", engine_error);
-                *engine.lock().unwrap() = None;
-                Some(engine_error)
-            } else {
-                info!("Warming up {} pipeline (espeak-ng + ORT)...", model_name);
-                let _ = kokoro.synthesize("Hello.", None);
-                *engine.lock().unwrap() = Some(kokoro);
-                None
+            let load_error = match load_result {
+                Err(e) => {
+                    let engine_error = format!(
+                        "Failed to load {} from {}: {}",
+                        model_name,
+                        model_dir.display(),
+                        e
+                    );
+                    error!("{}", engine_error);
+                    *engine.lock().unwrap() = None;
+                    *loaded_model_id.lock().unwrap() = None;
+                    Some(engine_error)
+                }
+                Ok(mut loaded) => {
+                    info!("Warming up {} pipeline (espeak-ng + ORT)...", model_name);
+                    let warmup_voice = loaded.default_voice();
+                    let _ = loaded.synthesize("Hello.", &warmup_voice, 0, 1.0);
+                    *engine.lock().unwrap() = Some(loaded);
+                    *loaded_model_id.lock().unwrap() = Some(model_id.clone());
+                    None
+                }
             };
 
             if let Some(error_msg) = load_error {
@@ -291,7 +301,7 @@ impl TTSManager {
                     "model-state-changed",
                     ModelStateEvent {
                         event_type: "loading_failed".to_string(),
-                        model_id: Some(MODEL_ID.to_string()),
+                        model_id: Some(model_id.clone()),
                         model_name: Some(model_name),
                         error: Some(error_msg.clone()),
                     },
@@ -303,7 +313,7 @@ impl TTSManager {
                     "model-state-changed",
                     ModelStateEvent {
                         event_type: "loaded".to_string(),
-                        model_id: Some(MODEL_ID.to_string()),
+                        model_id: Some(model_id.clone()),
                         model_name: Some(model_name),
                         error: None,
                     },
@@ -355,10 +365,10 @@ impl TTSManager {
         Ok(voices)
     }
 
-    /// Returns `Some(MODEL_ID)` when the model is loaded, `None` otherwise.
+    /// Returns the loaded model's id, `None` when nothing is loaded.
     pub fn get_current_model(&self) -> Option<String> {
         if self.is_model_loaded() {
-            Some(MODEL_ID.to_string())
+            self.loaded_model_id.lock().unwrap().clone()
         } else {
             None
         }
@@ -368,6 +378,7 @@ impl TTSManager {
     pub fn unload_model(&self) -> Result<()> {
         debug!("Unloading TTS model");
         *self.engine.lock().unwrap() = None;
+        *self.loaded_model_id.lock().unwrap() = None;
         let _ = self.app_handle.emit(
             "model-state-changed",
             ModelStateEvent {
@@ -616,14 +627,7 @@ impl TTSManager {
 
                 // Synthesize WITHOUT holding the mutex lock.
                 let synth_result = kokoro_engine
-                    .synthesize(
-                        chunk,
-                        Some(KokoroInferenceParams {
-                            voice: selected_voice.clone(),
-                            style_index: Some(shared_style_index),
-                            speed: tts_speed,
-                        }),
-                    )
+                    .synthesize(chunk, &selected_voice, shared_style_index, tts_speed)
                     .map_err(|e| format!("TTS synthesis failed: {}", e));
 
                 // Put engine back (brief lock, just a swap).
@@ -1001,21 +1005,18 @@ fn infer_kokoro_thread_count_for_cpu_count(cpu_count: usize) -> usize {
     cpu_count.saturating_sub(reserved_cores).max(1)
 }
 
-fn engine_is_loaded(engine: &Arc<Mutex<Option<KokoroEngine>>>) -> bool {
+pub type TtsEngine = Box<dyn SpeechEngine>;
+
+fn engine_is_loaded(engine: &Arc<Mutex<Option<TtsEngine>>>) -> bool {
     engine.lock().map(|guard| guard.is_some()).unwrap_or(false)
 }
 
-fn collect_available_voices(engine: &Arc<Mutex<Option<KokoroEngine>>>) -> Vec<String> {
+fn collect_available_voices(engine: &Arc<Mutex<Option<TtsEngine>>>) -> Vec<String> {
     let mut voices = Vec::new();
 
     let guard = engine.lock().unwrap_or_else(|p| p.into_inner());
     if let Some(engine) = guard.as_ref() {
-        voices.extend(
-            engine
-                .list_voices()
-                .into_iter()
-                .map(|voice| voice.to_string()),
-        );
+        voices.extend(engine.list_voices());
     }
     drop(guard);
 
@@ -1038,11 +1039,11 @@ fn request_is_active(
 /// Returns `None` if the request was cancelled while waiting.
 /// The caller is responsible for putting the engine back after synthesis.
 fn take_engine_for_active_request(
-    engine_slot: &Arc<Mutex<Option<KokoroEngine>>>,
+    engine_slot: &Arc<Mutex<Option<TtsEngine>>>,
     generation: &Arc<AtomicU64>,
     active_request: &Arc<AtomicU64>,
     request_id: u64,
-) -> Option<KokoroEngine> {
+) -> Option<TtsEngine> {
     loop {
         if !request_is_active(generation, active_request, request_id) {
             return None;
@@ -1064,7 +1065,7 @@ fn take_engine_for_active_request(
 }
 
 /// Put the engine back into its slot after synthesis.
-fn return_engine_to_slot(engine_slot: &Arc<Mutex<Option<KokoroEngine>>>, engine: KokoroEngine) {
+fn return_engine_to_slot(engine_slot: &Arc<Mutex<Option<TtsEngine>>>, engine: TtsEngine) {
     match engine_slot.lock() {
         Ok(mut guard) => *guard = Some(engine),
         Err(poisoned) => *poisoned.into_inner() = Some(engine),
@@ -1252,6 +1253,16 @@ fn clear_sink_if_owned_by_request(current_sink: &Arc<Mutex<Option<ActiveSink>>>,
         if let Some(active_sink) = sink_guard.take() {
             active_sink.sink.stop();
         }
+    }
+}
+
+/// The selected model id, falling back to the built-in Kokoro model.
+pub fn selected_model_id(app_handle: &AppHandle) -> String {
+    let selected = get_settings(app_handle).selected_model;
+    if selected.is_empty() {
+        MODEL_ID.to_string()
+    } else {
+        selected
     }
 }
 
@@ -2014,7 +2025,7 @@ Finally, the third paragraph closes the test. If you can hear this sentence, pla
 
     #[test]
     fn engine_take_aborts_when_request_is_cancelled() {
-        let engine_slot = Arc::new(Mutex::new(None::<tts_rs::engines::kokoro::KokoroEngine>));
+        let engine_slot = Arc::new(Mutex::new(None::<super::TtsEngine>));
         let generation = Arc::new(AtomicU64::new(5));
         let active_request = Arc::new(AtomicU64::new(5));
 

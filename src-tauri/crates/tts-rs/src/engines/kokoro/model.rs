@@ -234,7 +234,11 @@ fn find_onnx_file(model_dir: &Path) -> Result<std::path::PathBuf, KokoroError> {
     for entry in std::fs::read_dir(model_dir)? {
         let entry = entry?;
         let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) == Some("onnx") {
+        let is_graph_cache = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .is_some_and(|n| n.ends_with("-optimized.onnx"));
+        if path.extension().and_then(|e| e.to_str()) == Some("onnx") && !is_graph_cache {
             log::info!("Using ONNX file: {}", path.display());
             return Ok(path);
         }
@@ -255,7 +259,7 @@ fn find_onnx_file(model_dir: &Path) -> Result<std::path::PathBuf, KokoroError> {
 ///
 /// If `optimized_cache_path` is `None` the original behaviour (always Level3) is
 /// preserved, which is useful for unit-testing or read-only deployments.
-fn init_session(
+pub(crate) fn init_session(
     onnx_path: &Path,
     num_threads: Option<usize>,
     optimized_cache_path: Option<&Path>,

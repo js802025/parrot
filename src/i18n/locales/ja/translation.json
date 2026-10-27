@@ -141,7 +141,15 @@
         "translation": "翻訳",
         "allLanguages": "すべての言語"
       },
-      "noModelsMatch": "このフィルターに一致するモデルがありません。"
+      "noModelsMatch": "このフィルターに一致するモデルがありません。",
+      "searchPlaceholder": "モデルを検索",
+      "huggingFace": {
+        "title": "Hugging Face から追加",
+        "placeholder": "owner/model または huggingface.co の URL",
+        "add": "追加",
+        "adding": "追加中...",
+        "hint": "Piper 音声（.onnx + .onnx.json）と Kokoro ONNX モデル（.onnx + voices .bin）に対応しています。"
+      }
     },
     "sound": {
       "title": "サウンド",
