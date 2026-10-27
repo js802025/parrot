@@ -131,16 +131,25 @@ pub enum KeyboardImplementation {
 
 impl Default for KeyboardImplementation {
     fn default() -> Self {
-        // Default to HandyKeys only on macOS where it's well-tested.
-        // Windows and Linux use Tauri by default (handy-keys not sufficiently tested yet).
-        #[cfg(target_os = "macos")]
-        return KeyboardImplementation::HandyKeys;
-        #[cfg(not(target_os = "macos"))]
+        // Default to HandyKeys on macOS and Windows. Linux uses Tauri by default
+        // (HandyKeys is disabled on Linux due to Wayland instability).
+        #[cfg(target_os = "linux")]
         return KeyboardImplementation::Tauri;
+        #[cfg(not(target_os = "linux"))]
+        return KeyboardImplementation::HandyKeys;
     }
 }
 
 impl ModelUnloadTimeout {
+    /// Parse a UI or stored timeout value.
+    ///
+    /// Accepts both serde snake_case (`min_5`) and the compact UI leftovers
+    /// (`min5`) so a settings write round-trips after restart.
+    pub fn from_setting_value(value: &str) -> Result<Self, String> {
+        serde_json::from_value(serde_json::Value::String(value.to_string()))
+            .map_err(|_| format!("Invalid model unload timeout: {value}"))
+    }
+
     pub fn to_minutes(self) -> Option<u64> {
         match self {
             ModelUnloadTimeout::Never => None,
@@ -233,13 +242,9 @@ pub struct AppSettings {
     #[serde(default = "default_app_language")]
     pub app_language: String,
     #[serde(default)]
-    pub experimental_enabled: bool,
-    #[serde(default)]
     pub keyboard_implementation: KeyboardImplementation,
     #[serde(default = "default_show_tray_icon")]
     pub show_tray_icon: bool,
-    #[serde(default = "default_tts_workers")]
-    pub tts_workers: usize,
     #[serde(default = "default_tts_speed")]
     pub tts_speed: f32,
     #[serde(default = "default_tts_shorten_first_chunk")]
@@ -311,10 +316,6 @@ fn default_show_tray_icon() -> bool {
     true
 }
 
-fn default_tts_workers() -> usize {
-    0
-}
-
 fn default_tts_speed() -> f32 {
     1.0
 }
@@ -381,10 +382,8 @@ pub fn get_default_settings() -> AppSettings {
         history_limit: default_history_limit(),
         history_retention_period: default_history_retention_period(),
         app_language: default_app_language(),
-        experimental_enabled: false,
         keyboard_implementation: KeyboardImplementation::default(),
         show_tray_icon: default_show_tray_icon(),
-        tts_workers: default_tts_workers(),
         tts_speed: default_tts_speed(),
         tts_shorten_first_chunk: default_tts_shorten_first_chunk(),
         show_close_button: default_show_close_button(),
@@ -573,7 +572,6 @@ mod tests {
         assert_eq!(parsed.model_unload_timeout, ModelUnloadTimeout::Never);
         assert_eq!(parsed.selected_model, defaults.selected_model);
         assert_eq!(parsed.tts_speed, defaults.tts_speed);
-        assert_eq!(parsed.tts_workers, defaults.tts_workers);
         assert_eq!(
             parsed.tts_shorten_first_chunk,
             defaults.tts_shorten_first_chunk
@@ -630,5 +628,18 @@ mod tests {
         assert_eq!(json["model_unload_timeout"], "min_5");
         let parsed: AppSettings = serde_json::from_value(json).unwrap();
         assert_eq!(parsed.model_unload_timeout, ModelUnloadTimeout::Min5);
+    }
+
+    #[test]
+    fn parses_unload_timeout_setting_from_either_form() {
+        assert_eq!(
+            ModelUnloadTimeout::from_setting_value("min_5").unwrap(),
+            ModelUnloadTimeout::Min5
+        );
+        assert_eq!(
+            ModelUnloadTimeout::from_setting_value("min5").unwrap(),
+            ModelUnloadTimeout::Min5
+        );
+        assert!(ModelUnloadTimeout::from_setting_value("min3").is_err());
     }
 }

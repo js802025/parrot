@@ -141,7 +141,15 @@
         "translation": "Переклад",
         "allLanguages": "Усі мови"
       },
-      "noModelsMatch": "Жодна модель не відповідає цьому фільтру."
+      "noModelsMatch": "Жодна модель не відповідає цьому фільтру.",
+      "searchPlaceholder": "Пошук моделей",
+      "huggingFace": {
+        "title": "Додати з Hugging Face",
+        "placeholder": "owner/model або URL huggingface.co",
+        "add": "Додати",
+        "adding": "Додавання...",
+        "hint": "Підтримуються голоси Piper (.onnx + .onnx.json) і моделі Kokoro ONNX (.onnx + voices .bin)."
+      }
     },
     "sound": {
       "title": "Звук",
@@ -165,13 +173,7 @@
       "groups": {
         "app": "Додаток",
         "speech": "Speech",
-        "history": "Історія",
-        "experimental": "Експериментальне"
-      },
-      "ttsWorkers": {
-        "title": "TTS Workers",
-        "description": "Number of parallel synthesis engines. Auto uses your CPU core count to decide.",
-        "auto": "Auto"
+        "history": "Історія"
       },
       "ttsSpeed": {
         "title": "Speech Speed",
@@ -180,10 +182,6 @@
       "shortenFirstChunk": {
         "title": "Fast First Response",
         "description": "Synthesize a shorter first chunk for faster time-to-speech, then use longer chunks."
-      },
-      "experimentalToggle": {
-        "label": "Експериментальні функції",
-        "description": "Увімкнути експериментальні функції, які ще в розробці."
       },
       "startHidden": {
         "label": "Запуск у фоні",

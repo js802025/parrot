@@ -9,17 +9,27 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::fs::File;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+use crate::model_families;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tar::Archive;
 use tauri::{AppHandle, Emitter, Manager};
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type, PartialEq, Eq)]
 pub enum EngineType {
     Kokoro,
+    Piper,
 }
+
+const HF_BASE_URL: &str = "https://huggingface.co";
+const PIPER_VOICES_REPO: &str = "rhasspy/piper-voices";
+/// Cached copy of the Piper catalog so voices are listed offline.
+const PIPER_CATALOG_CACHE: &str = "piper-voices.json";
+/// Models the user added from Hugging Face by repo id.
+const HF_MODELS_FILE: &str = "huggingface-models.json";
 
 /// A single file that must be downloaded as part of a multi-file model.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -106,12 +116,7 @@ impl ModelManager {
                 accuracy_score: 0.80,
                 speed_score: 0.85,
                 is_recommended: true,
-                supported_languages: vec![
-                    "en".to_string(), "en-gb".to_string(), "es".to_string(),
-                    "fr".to_string(), "hi".to_string(), "it".to_string(),
-                    "ja".to_string(), "pt".to_string(), "zh-Hans".to_string(),
-                    "zh-Hant".to_string(), "yue".to_string(),
-                ],
+                supported_languages: kokoro_languages(),
                 is_custom: false,
                 components: vec![
                     ModelComponent {
@@ -127,6 +132,10 @@ impl ModelManager {
                 ],
             },
         );
+
+        for model in load_cached_huggingface_models(&models_dir) {
+            available_models.entry(model.id.clone()).or_insert(model);
+        }
 
         let manager = Self {
             app_handle: app_handle.clone(),
@@ -151,6 +160,70 @@ impl ModelManager {
     pub fn get_available_models(&self) -> Vec<ModelInfo> {
         let models = self.available_models.lock().unwrap();
         models.values().cloned().collect()
+    }
+
+    pub fn model_dir(&self, model: &ModelInfo) -> PathBuf {
+        self.models_dir.join(&model.filename)
+    }
+
+    fn insert_models(&self, models: Vec<ModelInfo>) {
+        let mut available = self.available_models.lock().unwrap();
+        for model in models {
+            available.entry(model.id.clone()).or_insert(model);
+        }
+    }
+
+    /// Fetch the Piper voice catalog from Hugging Face and cache it.
+    pub async fn refresh_huggingface_catalog(&self) -> Result<()> {
+        let url = hf_file_url(PIPER_VOICES_REPO, "voices.json");
+        let json = reqwest::get(&url).await?.error_for_status()?.text().await?;
+        let models = piper_catalog_models(&json)?;
+        fs::write(self.models_dir.join(PIPER_CATALOG_CACHE), &json)?;
+        self.insert_models(models);
+        self.update_download_status()
+    }
+
+    /// Add every supported model in a Hugging Face repo (`owner/name` or URL).
+    pub async fn add_huggingface_model(&self, input: &str) -> Result<Vec<ModelInfo>> {
+        let repo = parse_hf_repo(input)?;
+        let url = format!("{HF_BASE_URL}/api/models/{repo}?blobs=true");
+        let response = reqwest::get(&url).await?;
+        if !response.status().is_success() {
+            anyhow::bail!(
+                "Couldn't open {repo} on Hugging Face ({}). Private and gated models aren't supported.",
+                response.status()
+            );
+        }
+        let info: HfRepoInfo = serde_json::from_str(&response.text().await?)?;
+        let ids: Vec<String> = {
+            let models = models_from_hf_repo(&repo, &info.siblings)?;
+            let ids = models.iter().map(|m| m.id.clone()).collect();
+            self.insert_models(models);
+            ids
+        };
+        self.save_huggingface_models()?;
+        self.update_download_status()?;
+        Ok(ids
+            .iter()
+            .filter_map(|id| self.get_model_info(id))
+            .collect())
+    }
+
+    fn save_huggingface_models(&self) -> Result<()> {
+        let mut added: Vec<ModelInfo> = self
+            .available_models
+            .lock()
+            .unwrap()
+            .values()
+            .filter(|m| m.id.starts_with("hf-"))
+            .cloned()
+            .collect();
+        added.sort_by(|a, b| a.id.cmp(&b.id));
+        fs::write(
+            self.models_dir.join(HF_MODELS_FILE),
+            serde_json::to_string_pretty(&added)?,
+        )?;
+        Ok(())
     }
 
     pub fn get_model_info(&self, model_id: &str) -> Option<ModelInfo> {
@@ -965,5 +1038,354 @@ impl ModelManager {
 
         info!("Download cancellation initiated for: {}", model_id);
         Ok(())
+    }
+}
+
+pub(crate) fn kokoro_languages() -> Vec<String> {
+    [
+        "en", "en-gb", "es", "fr", "hi", "it", "ja", "pt", "zh-Hans", "zh-Hant", "yue",
+    ]
+    .iter()
+    .map(|l| l.to_string())
+    .collect()
+}
+
+#[derive(Deserialize)]
+struct PiperCatalogEntry {
+    key: String,
+    name: String,
+    quality: String,
+    language: PiperLanguage,
+    files: HashMap<String, PiperFile>,
+}
+
+#[derive(Deserialize)]
+struct PiperLanguage {
+    code: String,
+    family: String,
+    name_english: String,
+    country_english: String,
+}
+
+#[derive(Deserialize)]
+struct PiperFile {
+    size_bytes: u64,
+}
+
+#[derive(Deserialize)]
+struct HfRepoInfo {
+    siblings: Vec<HfSibling>,
+}
+
+#[derive(Deserialize)]
+pub(crate) struct HfSibling {
+    pub rfilename: String,
+    #[serde(default)]
+    pub size: Option<u64>,
+}
+
+pub(crate) fn hf_file_url(repo: &str, path: &str) -> String {
+    format!("{HF_BASE_URL}/{repo}/resolve/main/{path}")
+}
+
+pub(crate) fn size_mb(bytes: u64) -> u64 {
+    bytes.div_ceil(1024 * 1024)
+}
+
+pub(crate) fn file_name(path: &str) -> String {
+    path.rsplit('/').next().unwrap_or(path).to_string()
+}
+
+pub(crate) fn downloadable_model(
+    id: String,
+    name: String,
+    description: String,
+    engine_type: EngineType,
+    supported_languages: Vec<String>,
+    mut components: Vec<ModelComponent>,
+    (accuracy_score, speed_score): (f32, f32),
+    is_custom: bool,
+) -> ModelInfo {
+    components.sort_by(|a, b| a.filename.cmp(&b.filename));
+    ModelInfo {
+        filename: id.clone(),
+        id,
+        name,
+        description,
+        url: None,
+        size_mb: components.iter().map(|c| c.size_mb).sum(),
+        is_downloaded: false,
+        is_downloading: false,
+        partial_size: 0,
+        is_directory: true,
+        engine_type,
+        accuracy_score,
+        speed_score,
+        is_recommended: false,
+        supported_languages,
+        is_custom,
+        components,
+    }
+}
+
+fn load_cached_huggingface_models(models_dir: &Path) -> Vec<ModelInfo> {
+    let mut models = Vec::new();
+    if let Ok(json) = fs::read_to_string(models_dir.join(PIPER_CATALOG_CACHE)) {
+        match piper_catalog_models(&json) {
+            Ok(catalog) => models.extend(catalog),
+            Err(e) => warn!("Ignoring unreadable Piper catalog cache: {}", e),
+        }
+    }
+    if let Ok(json) = fs::read_to_string(models_dir.join(HF_MODELS_FILE)) {
+        match serde_json::from_str::<Vec<ModelInfo>>(&json) {
+            // Older builds flagged these as custom (local-only) models.
+            Ok(added) => models.extend(added.into_iter().map(|mut m| {
+                m.is_custom = false;
+                m
+            })),
+            Err(e) => warn!("Ignoring unreadable {}: {}", HF_MODELS_FILE, e),
+        }
+    }
+    models
+}
+
+fn piper_languages(language: &PiperLanguage) -> Vec<String> {
+    let mut languages = vec![match language.family.as_str() {
+        "zh" => "zh-Hans".to_string(),
+        family => family.to_string(),
+    }];
+    if language.code == "en_GB" {
+        languages.push("en-gb".to_string());
+    }
+    languages
+}
+
+/// Turn `rhasspy/piper-voices` `voices.json` into downloadable models.
+fn piper_catalog_models(json: &str) -> Result<Vec<ModelInfo>> {
+    let catalog: HashMap<String, PiperCatalogEntry> = serde_json::from_str(json)?;
+    let mut models: Vec<ModelInfo> = catalog
+        .into_values()
+        .filter_map(|voice| {
+            let components: Vec<ModelComponent> = voice
+                .files
+                .iter()
+                .filter(|(path, _)| path.ends_with(".onnx") || path.ends_with(".onnx.json"))
+                .map(|(path, file)| ModelComponent {
+                    url: hf_file_url(PIPER_VOICES_REPO, path),
+                    filename: file_name(path),
+                    size_mb: size_mb(file.size_bytes),
+                })
+                .collect();
+            if components.len() != 2 {
+                return None;
+            }
+            let scores = match voice.quality.as_str() {
+                "x_low" => (0.4, 0.95),
+                "low" => (0.55, 0.9),
+                "high" => (0.8, 0.6),
+                _ => (0.7, 0.8),
+            };
+            Some(downloadable_model(
+                format!("piper-{}", voice.key),
+                format!("Piper {} ({})", voice.name, voice.quality.replace('_', " ")),
+                format!(
+                    "{} ({})",
+                    voice.language.name_english, voice.language.country_english
+                ),
+                EngineType::Piper,
+                piper_languages(&voice.language),
+                components,
+                scores,
+                false,
+            ))
+        })
+        .collect();
+    models.sort_by(|a, b| a.id.cmp(&b.id));
+    Ok(models)
+}
+
+/// Accepts `owner/name` or a huggingface.co URL and returns `owner/name`.
+fn parse_hf_repo(input: &str) -> Result<String> {
+    let trimmed = input.trim().trim_end_matches('/');
+    let path = trimmed
+        .strip_prefix("https://")
+        .unwrap_or(trimmed)
+        .strip_prefix("huggingface.co/")
+        .unwrap_or(trimmed.strip_prefix("https://").unwrap_or(trimmed));
+    let parts: Vec<&str> = path.split('/').take(2).collect();
+    let valid = |part: &&str| {
+        !part.is_empty()
+            && !part.starts_with('.')
+            && part
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c))
+    };
+    if parts.len() == 2 && parts.iter().all(valid) {
+        Ok(parts.join("/"))
+    } else {
+        anyhow::bail!("Enter a Hugging Face model as owner/name, e.g. rhasspy/piper-voices")
+    }
+}
+
+/// Detect Piper voices (`<voice>.onnx` + `<voice>.onnx.json`) or a Kokoro
+/// model (`.onnx` + `voices*.bin`) among a repo's files.
+fn models_from_hf_repo(repo: &str, siblings: &[HfSibling]) -> Result<Vec<ModelInfo>> {
+    model_families::detect(&model_families::HfRepo {
+        id: repo,
+        files: siblings,
+    })
+}
+
+#[cfg(test)]
+mod huggingface_tests {
+    use super::*;
+
+    fn sibling(path: &str, size: u64) -> HfSibling {
+        HfSibling {
+            rfilename: path.to_string(),
+            size: Some(size),
+        }
+    }
+
+    const CATALOG: &str = r#"{
+        "en_GB-alan-low": {
+            "key": "en_GB-alan-low", "name": "alan", "quality": "low",
+            "language": {"code": "en_GB", "family": "en", "name_english": "English", "country_english": "Great Britain"},
+            "files": {
+                "en/en_GB/alan/low/en_GB-alan-low.onnx": {"size_bytes": 63104526},
+                "en/en_GB/alan/low/en_GB-alan-low.onnx.json": {"size_bytes": 4170},
+                "en/en_GB/alan/low/MODEL_CARD": {"size_bytes": 280}
+            }
+        },
+        "zh_CN-huayan-x_low": {
+            "key": "zh_CN-huayan-x_low", "name": "huayan", "quality": "x_low",
+            "language": {"code": "zh_CN", "family": "zh", "name_english": "Chinese", "country_english": "China"},
+            "files": {
+                "zh/zh_CN/huayan/x_low/zh_CN-huayan-x_low.onnx": {"size_bytes": 20000000},
+                "zh/zh_CN/huayan/x_low/zh_CN-huayan-x_low.onnx.json": {"size_bytes": 4000}
+            }
+        }
+    }"#;
+
+    #[test]
+    fn piper_catalog_becomes_downloadable_models() {
+        let models = piper_catalog_models(CATALOG).unwrap();
+        assert_eq!(models.len(), 2);
+        let alan = &models[0];
+        assert_eq!(alan.id, "piper-en_GB-alan-low");
+        assert_eq!(alan.filename, alan.id);
+        assert_eq!(alan.name, "Piper alan (low)");
+        assert_eq!(alan.description, "English (Great Britain)");
+        assert!(matches!(alan.engine_type, EngineType::Piper));
+        assert_eq!(alan.supported_languages, vec!["en", "en-gb"]);
+        assert_eq!(alan.size_mb, 62);
+        let files: Vec<&str> = alan
+            .components
+            .iter()
+            .map(|c| c.filename.as_str())
+            .collect();
+        assert_eq!(
+            files,
+            vec!["en_GB-alan-low.onnx", "en_GB-alan-low.onnx.json"]
+        );
+        assert_eq!(
+            alan.components[0].url,
+            "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alan/low/en_GB-alan-low.onnx"
+        );
+        assert_eq!(models[1].supported_languages, vec!["zh-Hans"]);
+        assert_eq!(models[1].name, "Piper huayan (x low)");
+    }
+
+    #[test]
+    fn parses_repo_ids_and_urls() {
+        for input in [
+            "rhasspy/piper-voices",
+            " https://huggingface.co/rhasspy/piper-voices/ ",
+            "huggingface.co/rhasspy/piper-voices/tree/main",
+        ] {
+            assert_eq!(parse_hf_repo(input).unwrap(), "rhasspy/piper-voices");
+        }
+        for input in ["", "piper-voices", "../etc", "owner/na me", "owner/.."] {
+            assert!(
+                parse_hf_repo(input).is_err(),
+                "{input:?} should be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn detects_every_piper_voice_in_a_repo() {
+        let siblings = [
+            sibling("README.md", 10),
+            sibling("voices/a.onnx", 3 * 1024 * 1024),
+            sibling("voices/a.onnx.json", 4000),
+            sibling("b.onnx", 1024),
+            sibling("b.onnx.json", 10),
+            sibling("orphan.onnx", 10),
+        ];
+        let models = models_from_hf_repo("me/voices", &siblings).unwrap();
+        let ids: Vec<&str> = models.iter().map(|m| m.id.as_str()).collect();
+        assert_eq!(ids, vec!["hf-me--voices--a", "hf-me--voices--b"]);
+        assert!(models
+            .iter()
+            .all(|m| !m.is_custom && matches!(m.engine_type, EngineType::Piper)));
+        assert_eq!(models[0].size_mb, 4);
+        assert_eq!(
+            models[0].components[0].url,
+            "https://huggingface.co/me/voices/resolve/main/voices/a.onnx"
+        );
+    }
+
+    #[test]
+    fn detects_kokoro_repo_and_renames_voices_file() {
+        let siblings = [
+            sibling("kokoro-v1.0.onnx", 300),
+            sibling("kokoro-v1.0.int8.onnx", 90),
+            sibling("voices-v1.0.bin", 27),
+        ];
+        let models = models_from_hf_repo("fastrtc/kokoro-onnx", &siblings).unwrap();
+        assert_eq!(models.len(), 1);
+        assert_eq!(models[0].id, "hf-fastrtc--kokoro-onnx");
+        assert!(matches!(models[0].engine_type, EngineType::Kokoro));
+        let files: Vec<&str> = models[0]
+            .components
+            .iter()
+            .map(|c| c.filename.as_str())
+            .collect();
+        assert_eq!(files, vec!["kokoro-v1.0.int8.onnx", "voices-v1.0.bin"]);
+    }
+
+    #[test]
+    fn rejects_repos_without_supported_files() {
+        let siblings = [sibling("model.safetensors", 10), sibling("config.json", 1)];
+        let err = models_from_hf_repo("someone/llm", &siblings).unwrap_err();
+        assert!(err.to_string().contains("no model Parrot can run"));
+    }
+
+    #[test]
+    fn added_models_round_trip_through_cache_files() {
+        let dir = std::env::temp_dir().join(format!("parrot-hf-cache-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join(PIPER_CATALOG_CACHE), CATALOG).unwrap();
+        let added = models_from_hf_repo("me/v", &[sibling("x.onnx", 1), sibling("x.onnx.json", 1)])
+            .unwrap();
+        fs::write(
+            dir.join(HF_MODELS_FILE),
+            serde_json::to_string(&added).unwrap(),
+        )
+        .unwrap();
+        let ids: Vec<String> = load_cached_huggingface_models(&dir)
+            .into_iter()
+            .map(|m| m.id)
+            .collect();
+        fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(
+            ids,
+            vec![
+                "piper-en_GB-alan-low",
+                "piper-zh_CN-huayan-x_low",
+                "hf-me--v--x"
+            ]
+        );
     }
 }

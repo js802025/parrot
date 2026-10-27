@@ -8,17 +8,12 @@ import { AutostartToggle } from "../AutostartToggle";
 import { ShowTrayIcon } from "../ShowTrayIcon";
 import { HistoryLimit } from "../HistoryLimit";
 import { HistoryRetentionPeriodSelector } from "../HistoryRetentionPeriod";
-import { ExperimentalToggle } from "../ExperimentalToggle";
-import { TtsWorkers } from "../TtsWorkers";
 import { TtsSpeed } from "../TtsSpeed";
 import { ShortenFirstChunk } from "../ShortenFirstChunk";
-import { useSettings } from "../../../hooks/useSettings";
-import { KeyboardImplementationSelector } from "../debug/KeyboardImplementationSelector";
+import { KeyboardImplementationSelector } from "../KeyboardImplementationSelector";
 
 export const AdvancedSettings: React.FC = () => {
   const { t } = useTranslation();
-  const { getSetting } = useSettings();
-  const experimentalEnabled = getSetting("experimental_enabled") || false;
 
   return (
     <div className="max-w-3xl w-full mx-auto space-y-6">
@@ -28,11 +23,13 @@ export const AdvancedSettings: React.FC = () => {
         <ShowTrayIcon descriptionMode="tooltip" grouped={true} />
         <ShowOverlay descriptionMode="tooltip" grouped={true} />
         <ModelUnloadTimeoutSetting descriptionMode="tooltip" grouped={true} />
-        <ExperimentalToggle descriptionMode="tooltip" grouped={true} />
+        <KeyboardImplementationSelector
+          descriptionMode="tooltip"
+          grouped={true}
+        />
       </SettingsGroup>
 
       <SettingsGroup title={t("settings.advanced.groups.speech")}>
-        <TtsWorkers descriptionMode="tooltip" grouped={true} />
         <TtsSpeed descriptionMode="tooltip" grouped={true} />
         <ShortenFirstChunk descriptionMode="tooltip" grouped={true} />
       </SettingsGroup>
@@ -44,15 +41,6 @@ export const AdvancedSettings: React.FC = () => {
           grouped={true}
         />
       </SettingsGroup>
-
-      {experimentalEnabled && (
-        <SettingsGroup title={t("settings.advanced.groups.experimental")}>
-          <KeyboardImplementationSelector
-            descriptionMode="tooltip"
-            grouped={true}
-          />
-        </SettingsGroup>
-      )}
     </div>
   );
 };

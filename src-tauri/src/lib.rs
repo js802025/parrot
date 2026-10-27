@@ -2,11 +2,12 @@ mod action_coordinator;
 mod actions;
 mod audio_feedback;
 pub mod audio_toolkit;
-pub mod cli;
+mod cli;
 mod commands;
 mod helpers;
 mod input;
 mod managers;
+mod model_families;
 mod overlay;
 mod settings;
 mod shortcut;
@@ -16,7 +17,7 @@ mod tray;
 mod tray_i18n;
 mod utils;
 
-pub use cli::CliArgs;
+use cli::CliArgs;
 use tauri_specta::{collect_commands, Builder};
 
 pub use action_coordinator::ActionCoordinator;
@@ -182,7 +183,7 @@ fn initialize_core_logic(
 
     #[cfg(unix)]
     let signals = Signals::new([SIGUSR1, SIGUSR2]).unwrap();
-    // Set up signal handlers for toggling transcription
+    // Set up signal handlers for toggling speech playback
     #[cfg(unix)]
     signal_handle::setup_signal_handler(app_handle.clone(), signals);
 
@@ -290,7 +291,9 @@ fn trigger_update_check(app: AppHandle) -> Result<(), String> {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run(cli_args: CliArgs) {
+pub fn run() {
+    let cli_args = CliArgs::from_env();
+
     // Parse console logging directives from RUST_LOG, falling back to info-level logging
     // when the variable is unset
     let console_filter = build_console_filter();
@@ -306,10 +309,9 @@ pub fn run(cli_args: CliArgs) {
         shortcut::change_selected_language_setting,
         shortcut::change_kokoro_voice_setting,
         shortcut::change_overlay_position_setting,
+        shortcut::change_model_unload_timeout_setting,
         shortcut::change_debug_mode_setting,
         shortcut::change_show_close_button_setting,
-        shortcut::set_model_unload_timeout,
-        shortcut::change_experimental_enabled_setting,
         shortcut::suspend_binding,
         shortcut::resume_binding,
         shortcut::change_app_language_setting,
@@ -317,7 +319,6 @@ pub fn run(cli_args: CliArgs) {
         shortcut::change_keyboard_implementation_setting,
         shortcut::get_keyboard_implementation,
         shortcut::change_show_tray_icon_setting,
-        shortcut::change_tts_workers_setting,
         shortcut::change_tts_speed_setting,
         shortcut::change_tts_shorten_first_chunk_setting,
         shortcut::handy_keys::start_handy_keys_recording,
@@ -342,10 +343,12 @@ pub fn run(cli_args: CliArgs) {
         commands::models::cancel_download,
         commands::models::set_active_model,
         commands::models::get_current_model,
-        commands::models::get_transcription_model_status,
+        commands::models::get_tts_model_status,
         commands::models::is_model_loading,
         commands::models::has_any_models_available,
         commands::models::has_any_models_or_downloads,
+        commands::models::refresh_model_catalog,
+        commands::models::add_huggingface_model,
         commands::get_model_status,
         commands::preload_tts_model,
         commands::toggle_tts_pause,
@@ -374,6 +377,7 @@ pub fn run(cli_args: CliArgs) {
         .expect("Failed to export typescript bindings");
 
     let builder = tauri::Builder::default()
+        .device_event_filter(tauri::DeviceEventFilter::Always)
         .plugin(tauri_plugin_dialog::init())
         .plugin(
             LogBuilder::new()
@@ -404,9 +408,10 @@ pub fn run(cli_args: CliArgs) {
 
     builder
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
-            if args.iter().any(|a| a == "--toggle-transcription") {
+            let cli = CliArgs::from_args(args.iter().skip(1));
+            if cli.toggle_transcription {
                 signal_handle::send_action_input(app, "speak", "CLI");
-            } else if args.iter().any(|a| a == "--cancel") {
+            } else if cli.cancel {
                 crate::utils::cancel_current_operation(app);
             } else {
                 show_main_window(app);
@@ -429,7 +434,7 @@ pub fn run(cli_args: CliArgs) {
         .setup(move |app| {
             let mut settings = get_settings(app.handle());
 
-            // CLI --debug flag overrides debug_mode and log level (runtime-only, not persisted)
+            // --debug overrides debug_mode and log level (runtime-only, not persisted)
             if cli_args.debug {
                 settings.debug_mode = true;
                 settings.log_level = settings::LogLevel::Trace;
@@ -445,15 +450,12 @@ pub fn run(cli_args: CliArgs) {
             let espeak_paths = resolve_bundled_espeak_ng(&app_handle);
             initialize_core_logic(&app_handle, espeak_paths);
 
-            // Hide tray icon if --no-tray was passed
             if cli_args.no_tray {
                 tray::set_tray_visibility(&app_handle, false);
             }
 
             // Show main window only if not starting hidden
-            // CLI --start-hidden flag overrides the setting
-            let should_hide = settings.start_hidden || cli_args.start_hidden;
-            if !should_hide {
+            if !(settings.start_hidden || cli_args.start_hidden) {
                 if let Some(main_window) = app_handle.get_webview_window("main") {
                     main_window.show().unwrap();
                     main_window.set_focus().unwrap();
@@ -466,7 +468,7 @@ pub fn run(cli_args: CliArgs) {
             tauri::WindowEvent::CloseRequested { api, .. } => {
                 let settings = get_settings(window.app_handle());
                 let cli = window.app_handle().state::<CliArgs>();
-                // If tray icon is hidden (via setting or --no-tray flag), quit the app
+                // If the tray icon is hidden, quit the app instead of hiding to tray
                 if !settings.show_tray_icon || cli.no_tray {
                     window.app_handle().exit(0);
                     return;

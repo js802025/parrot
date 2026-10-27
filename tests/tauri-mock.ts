@@ -22,7 +22,6 @@ export const defaultSettings = {
     },
   },
   debug_mode: false,
-  experimental_enabled: false,
   history_limit: 3,
   history_retention_period: "preserve_limit",
   keyboard_implementation: "tauri",
@@ -39,7 +38,6 @@ export const defaultSettings = {
   start_hidden: false,
   tts_shorten_first_chunk: true,
   tts_speed: 1.0,
-  tts_workers: 0,
   update_checks_enabled: true,
 };
 
@@ -95,7 +93,16 @@ export async function mockTauri(
         convertFileSrc: (path: string) => path,
         invoke: async (cmd: string, args: unknown) => {
           calls.push({ cmd, args });
-          if (cmd in responses) return responses[cmd];
+          if (cmd in responses) {
+            const response = responses[cmd] as any;
+            if (
+              response &&
+              typeof response === "object" &&
+              "__error" in response
+            )
+              throw response.__error;
+            return response;
+          }
           if (cmd === "plugin:event|listen") return nextId++;
           const name = cmd.split("|").pop() ?? cmd;
           if (name.startsWith("get_") && listLike.test(name)) return [];

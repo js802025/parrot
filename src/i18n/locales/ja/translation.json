@@ -141,7 +141,15 @@
         "translation": "翻訳",
         "allLanguages": "すべての言語"
       },
-      "noModelsMatch": "このフィルターに一致するモデルがありません。"
+      "noModelsMatch": "このフィルターに一致するモデルがありません。",
+      "searchPlaceholder": "モデルを検索",
+      "huggingFace": {
+        "title": "Hugging Face から追加",
+        "placeholder": "owner/model または huggingface.co の URL",
+        "add": "追加",
+        "adding": "追加中...",
+        "hint": "Piper 音声（.onnx + .onnx.json）と Kokoro ONNX モデル（.onnx + voices .bin）に対応しています。"
+      }
     },
     "sound": {
       "title": "サウンド",
@@ -165,13 +173,7 @@
       "groups": {
         "app": "アプリ",
         "speech": "Speech",
-        "history": "履歴",
-        "experimental": "実験的"
-      },
-      "ttsWorkers": {
-        "title": "TTS Workers",
-        "description": "Number of parallel synthesis engines. Auto uses your CPU core count to decide.",
-        "auto": "Auto"
+        "history": "履歴"
       },
       "ttsSpeed": {
         "title": "Speech Speed",
@@ -180,10 +182,6 @@
       "shortenFirstChunk": {
         "title": "Fast First Response",
         "description": "Synthesize a shorter first chunk for faster time-to-speech, then use longer chunks."
-      },
-      "experimentalToggle": {
-        "label": "実験的機能",
-        "description": "まだ開発中の実験的機能を有効にします。"
       },
       "startHidden": {
         "label": "非表示で起動",

@@ -141,7 +141,15 @@
         "translation": "翻譯",
         "allLanguages": "所有語言"
       },
-      "noModelsMatch": "沒有符合此篩選條件的模型"
+      "noModelsMatch": "沒有符合此篩選條件的模型",
+      "searchPlaceholder": "搜尋模型",
+      "huggingFace": {
+        "title": "從 Hugging Face 新增",
+        "placeholder": "owner/model 或 huggingface.co 網址",
+        "add": "新增",
+        "adding": "正在新增...",
+        "hint": "支援 Piper 語音（.onnx + .onnx.json）與 Kokoro ONNX 模型（.onnx + voices .bin）。"
+      }
     },
     "sound": {
       "title": "聲音",
@@ -165,13 +173,7 @@
       "groups": {
         "app": "應用程式",
         "speech": "Speech",
-        "history": "歷史",
-        "experimental": "實驗性"
-      },
-      "ttsWorkers": {
-        "title": "TTS Workers",
-        "description": "Number of parallel synthesis engines. Auto uses your CPU core count to decide.",
-        "auto": "Auto"
+        "history": "歷史"
       },
       "ttsSpeed": {
         "title": "Speech Speed",
@@ -180,10 +182,6 @@
       "shortenFirstChunk": {
         "title": "Fast First Response",
         "description": "Synthesize a shorter first chunk for faster time-to-speech, then use longer chunks."
-      },
-      "experimentalToggle": {
-        "label": "實驗性功能",
-        "description": "啟用仍在開發中的實驗性功能"
       },
       "startHidden": {
         "label": "隱藏啟動",

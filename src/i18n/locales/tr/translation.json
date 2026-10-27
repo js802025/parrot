@@ -141,7 +141,15 @@
         "translation": "Çeviri",
         "allLanguages": "Tüm Diller"
       },
-      "noModelsMatch": "Bu filtreyle eşleşen model yok."
+      "noModelsMatch": "Bu filtreyle eşleşen model yok.",
+      "searchPlaceholder": "Model ara",
+      "huggingFace": {
+        "title": "Hugging Face'ten ekle",
+        "placeholder": "owner/model veya huggingface.co URL'si",
+        "add": "Ekle",
+        "adding": "Ekleniyor...",
+        "hint": "Piper sesleri (.onnx + .onnx.json) ve Kokoro ONNX modelleri (.onnx + voices .bin) desteklenir."
+      }
     },
     "sound": {
       "title": "Ses",
@@ -165,13 +173,7 @@
       "groups": {
         "app": "Uygulama",
         "speech": "Speech",
-        "history": "Geçmiş",
-        "experimental": "Deneysel"
-      },
-      "ttsWorkers": {
-        "title": "TTS Workers",
-        "description": "Number of parallel synthesis engines. Auto uses your CPU core count to decide.",
-        "auto": "Auto"
+        "history": "Geçmiş"
       },
       "ttsSpeed": {
         "title": "Speech Speed",
@@ -180,10 +182,6 @@
       "shortenFirstChunk": {
         "title": "Fast First Response",
         "description": "Synthesize a shorter first chunk for faster time-to-speech, then use longer chunks."
-      },
-      "experimentalToggle": {
-        "label": "Deneysel Özellikler",
-        "description": "Hala geliştirme aşamasında olan deneysel özellikleri etkinleştir."
       },
       "startHidden": {
         "label": "Gizli Başlat",
