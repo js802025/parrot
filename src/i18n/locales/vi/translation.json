@@ -141,7 +141,15 @@
         "translation": "Dịch thuật",
         "allLanguages": "Tất cả ngôn ngữ"
       },
-      "noModelsMatch": "Không có mô hình nào khớp với bộ lọc này."
+      "noModelsMatch": "Không có mô hình nào khớp với bộ lọc này.",
+      "searchPlaceholder": "Tìm mô hình",
+      "huggingFace": {
+        "title": "Thêm từ Hugging Face",
+        "placeholder": "owner/model hoặc URL huggingface.co",
+        "add": "Thêm",
+        "adding": "Đang thêm...",
+        "hint": "Hỗ trợ giọng Piper (.onnx + .onnx.json) và mô hình Kokoro ONNX (.onnx + voices .bin)."
+      }
     },
     "sound": {
       "title": "Âm thanh",
@@ -165,13 +173,7 @@
       "groups": {
         "app": "Ứng dụng",
         "speech": "Speech",
-        "history": "Lịch sử",
-        "experimental": "Thử nghiệm"
-      },
-      "ttsWorkers": {
-        "title": "TTS Workers",
-        "description": "Number of parallel synthesis engines. Auto uses your CPU core count to decide.",
-        "auto": "Auto"
+        "history": "Lịch sử"
       },
       "ttsSpeed": {
         "title": "Speech Speed",
@@ -180,10 +182,6 @@
       "shortenFirstChunk": {
         "title": "Fast First Response",
         "description": "Synthesize a shorter first chunk for faster time-to-speech, then use longer chunks."
-      },
-      "experimentalToggle": {
-        "label": "Tính năng thử nghiệm",
-        "description": "Bật các tính năng thử nghiệm đang trong quá trình phát triển."
       },
       "startHidden": {
         "label": "Khởi động ẩn",

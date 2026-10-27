@@ -32,6 +32,8 @@ struct SpeechTextRenderer {
     quote_depth: usize,
     skip_code_block_depth: usize,
     table_cell_index: usize,
+    /// Set when the previous event was raw text: whether it ended in whitespace.
+    prev_text_trailing_ws: Option<bool>,
 }
 
 #[derive(Clone, Debug)]
@@ -52,10 +54,25 @@ struct ImageContext {
 
 impl SpeechTextRenderer {
     fn handle_event(&mut self, event: Event<'_>) {
+        let prev_text_trailing_ws = self.prev_text_trailing_ws.take();
         match event {
             Event::Start(tag) => self.start_tag(tag),
             Event::End(tag) => self.end_tag(tag),
-            Event::Text(text) | Event::InlineMath(text) | Event::DisplayMath(text) => {
+            // pulldown-cmark splits text at smart quotes and entities, so keep the
+            // source whitespace between adjacent text events instead of guessing.
+            Event::Text(text) => {
+                if self.skip_code_block_depth == 0 {
+                    let join =
+                        prev_text_trailing_ws.map(|ws| ws || text.starts_with(char::is_whitespace));
+                    self.push_text_with_join(&text, join);
+                }
+                self.prev_text_trailing_ws = Some(if text.is_empty() {
+                    prev_text_trailing_ws.unwrap_or(false)
+                } else {
+                    text.ends_with(char::is_whitespace)
+                });
+            }
+            Event::InlineMath(text) | Event::DisplayMath(text) => {
                 if self.skip_code_block_depth == 0 {
                     self.push_text(&text);
                 }
@@ -210,28 +227,36 @@ impl SpeechTextRenderer {
     }
 
     fn push_text(&mut self, text: &str) {
+        self.push_text_with_join(text, None);
+    }
+
+    fn push_text_with_join(&mut self, text: &str, join: Option<bool>) {
         let normalized = normalize_inline_whitespace(text);
         if normalized.is_empty() {
             return;
         }
 
         if let Some(image) = self.image_stack.last_mut() {
-            append_segment(&mut image.alt_text, &normalized);
+            append_segment(&mut image.alt_text, &normalized, join);
             return;
         }
 
         if let Some(link) = self.link_stack.last_mut() {
-            append_segment(&mut link.text, &normalized);
+            append_segment(&mut link.text, &normalized, join);
             return;
         }
 
         self.flush_breaks();
 
-        if needs_space_between(
-            self.output.chars().rev().nth(1),
-            self.output.chars().next_back(),
-            normalized.chars().next(),
-        ) {
+        if !self.output.is_empty()
+            && join.unwrap_or_else(|| {
+                needs_space_between(
+                    self.output.chars().rev().nth(1),
+                    self.output.chars().next_back(),
+                    normalized.chars().next(),
+                )
+            })
+        {
             self.output.push(' ');
         }
         self.output.push_str(&normalized);
@@ -315,16 +340,20 @@ impl SpeechTextRenderer {
     }
 }
 
-fn append_segment(buffer: &mut String, segment: &str) {
+fn append_segment(buffer: &mut String, segment: &str, join: Option<bool>) {
     if segment.is_empty() {
         return;
     }
 
-    if needs_space_between(
-        buffer.chars().rev().nth(1),
-        buffer.chars().next_back(),
-        segment.chars().next(),
-    ) {
+    if !buffer.is_empty()
+        && join.unwrap_or_else(|| {
+            needs_space_between(
+                buffer.chars().rev().nth(1),
+                buffer.chars().next_back(),
+                segment.chars().next(),
+            )
+        })
+    {
         buffer.push(' ');
     }
     buffer.push_str(segment);
@@ -357,11 +386,12 @@ fn needs_space_between(prev_left: Option<char>, left: Option<char>, right: Optio
             false
         }
         (_, Some('&'), Some(right)) if right.is_alphanumeric() => false,
-        (prev_left, Some('\'' | '’'), Some(right)) if right.is_alphanumeric() => {
+        (prev_left, Some('\'' | '’' | '‘'), Some(right)) if right.is_alphanumeric() => {
             match prev_left {
                 None => false,
                 Some(ch)
-                    if ch.is_whitespace()
+                    if ch.is_alphanumeric()
+                        || ch.is_whitespace()
                         || matches!(ch, '(' | '[' | '{' | '"' | ':' | ';' | '—' | '–') =>
                 {
                     false
@@ -580,6 +610,19 @@ fn main() {
         assert!(spoken.contains("2. Run tests."));
         assert!(spoken.contains("Completed. Ship fix."));
         assert!(spoken.contains("Not completed. Write follow-up."));
+    }
+
+    #[test]
+    fn keeps_contractions_and_quoted_words_intact() {
+        assert_eq!(
+            normalize_text_for_tts("I don't know, it's fine. We'll see."),
+            "I don’t know, it’s fine. We’ll see."
+        );
+        assert_eq!(
+            normalize_text_for_tts("Parrot's voice isn't 'quoted' here."),
+            "Parrot’s voice isn’t ‘quoted’ here."
+        );
+        assert_eq!(normalize_text_for_tts("rock 'n' roll"), "rock ‘n’ roll.");
     }
 
     #[test]

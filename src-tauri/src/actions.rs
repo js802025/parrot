@@ -196,8 +196,74 @@ fn get_selected_text_with_fallback(app: &AppHandle) -> Option<String> {
     }
 }
 
+/// Returns the copied text, or `None` if the copy left the probe sentinel (or nothing) behind.
+#[cfg(not(target_os = "macos"))]
+fn copied_text_from_probe(copied_text: Option<String>, sentinel: &str) -> Option<String> {
+    let copied = copied_text?.trim().to_string();
+    if copied.is_empty() || copied == sentinel {
+        None
+    } else {
+        Some(copied)
+    }
+}
+
+/// On Wayland, enigo's synthetic Ctrl+C only reaches XWayland windows, so native
+/// Wayland apps never copy. Fall back to the PRIMARY selection, which Wayland apps
+/// update whenever the user highlights text.
+#[cfg(not(target_os = "macos"))]
+fn prefer_copied_then_primary(
+    copied: Option<String>,
+    read_primary: impl FnOnce() -> Option<String>,
+) -> Option<String> {
+    copied.or_else(|| {
+        read_primary()
+            .map(|text| text.trim().to_string())
+            .filter(|text| !text.is_empty())
+    })
+}
+
+/// PRIMARY keeps its last value after text is deselected, so it is only used where
+/// Ctrl+C cannot work. On X11 a failed Ctrl+C really means nothing is selected.
+#[cfg(target_os = "linux")]
+fn is_wayland_session(wayland_display: Option<&str>, session_type: Option<&str>) -> bool {
+    wayland_display.is_some_and(|display| !display.is_empty())
+        || session_type.is_some_and(|kind| kind.eq_ignore_ascii_case("wayland"))
+}
+
+#[cfg(target_os = "linux")]
+fn read_primary_selection() -> Option<String> {
+    use arboard::{Clipboard, GetExtLinux, LinuxClipboardKind};
+
+    let wayland_display = std::env::var("WAYLAND_DISPLAY").ok();
+    let session_type = std::env::var("XDG_SESSION_TYPE").ok();
+    if !is_wayland_session(wayland_display.as_deref(), session_type.as_deref()) {
+        return None;
+    }
+
+    let mut clipboard = Clipboard::new().ok()?;
+    clipboard
+        .get()
+        .clipboard(LinuxClipboardKind::Primary)
+        .text()
+        .ok()
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+fn read_primary_selection() -> Option<String> {
+    None
+}
+
 #[cfg(not(target_os = "macos"))]
 fn get_selected_text_with_fallback(app: &AppHandle) -> Option<String> {
+    let copied = copy_selection_with_ctrl_c(app);
+    if copied.is_none() {
+        debug!("Ctrl+C produced no selection; trying the PRIMARY selection");
+    }
+    prefer_copied_then_primary(copied, read_primary_selection)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn copy_selection_with_ctrl_c(app: &AppHandle) -> Option<String> {
     let clipboard = app.clipboard();
     let previous_clipboard = clipboard.read_text().ok();
     let restore_clipboard = |value: Option<String>| {
@@ -231,12 +297,7 @@ fn get_selected_text_with_fallback(app: &AppHandle) -> Option<String> {
 
     restore_clipboard(previous_clipboard);
 
-    let copied = copied_text?.trim().to_string();
-    if copied.is_empty() || copied == sentinel {
-        None
-    } else {
-        Some(copied)
-    }
+    copied_text_from_probe(copied_text, &sentinel)
 }
 
 impl ShortcutAction for SpeakAction {
@@ -296,3 +357,59 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
     );
     map
 });
+
+#[cfg(all(test, not(target_os = "macos")))]
+mod tests {
+    use super::{copied_text_from_probe, prefer_copied_then_primary};
+
+    #[test]
+    fn probe_rejects_unchanged_sentinel_and_blank_text() {
+        assert_eq!(
+            copied_text_from_probe(Some("__probe__".into()), "__probe__"),
+            None
+        );
+        assert_eq!(
+            copied_text_from_probe(Some("  \n ".into()), "__probe__"),
+            None
+        );
+        assert_eq!(copied_text_from_probe(None, "__probe__"), None);
+        assert_eq!(
+            copied_text_from_probe(Some("  hello world \n".into()), "__probe__"),
+            Some("hello world".into())
+        );
+    }
+
+    #[test]
+    fn copied_text_wins_without_reading_primary() {
+        let selection = prefer_copied_then_primary(Some("copied".into()), || {
+            panic!("PRIMARY must not be read when Ctrl+C worked")
+        });
+        assert_eq!(selection, Some("copied".into()));
+    }
+
+    #[test]
+    fn falls_back_to_primary_selection_when_copy_fails() {
+        let selection = prefer_copied_then_primary(None, || Some("  highlighted text \n".into()));
+        assert_eq!(selection, Some("highlighted text".into()));
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn primary_fallback_is_wayland_only() {
+        use super::is_wayland_session;
+        assert!(is_wayland_session(Some("wayland-1"), None));
+        assert!(is_wayland_session(None, Some("wayland")));
+        assert!(!is_wayland_session(None, Some("x11")));
+        assert!(!is_wayland_session(Some(""), None));
+        assert!(!is_wayland_session(None, None));
+    }
+
+    #[test]
+    fn empty_primary_selection_is_no_selection() {
+        assert_eq!(
+            prefer_copied_then_primary(None, || Some("   ".into())),
+            None
+        );
+        assert_eq!(prefer_copied_then_primary(None, || None), None);
+    }
+}

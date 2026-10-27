@@ -20,7 +20,8 @@ use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
 
 use crate::settings::{
-    self, get_settings, KeyboardImplementation, OverlayPosition, ShortcutBinding, SoundTheme,
+    self, get_settings, KeyboardImplementation, ModelUnloadTimeout, OverlayPosition,
+    ShortcutBinding, SoundTheme,
 };
 use crate::tray;
 
@@ -52,9 +53,19 @@ pub fn init_shortcuts(app: &AppHandle) {
     }
 }
 
+fn play_pause_disabled(settings: &settings::AppSettings) -> bool {
+    settings
+        .bindings
+        .get("play_pause")
+        .is_none_or(|binding| binding.current_binding.eq_ignore_ascii_case("disabled"))
+}
+
 /// Register the play/pause shortcut (called when speaking starts)
 pub fn register_play_pause_shortcut(app: &AppHandle) {
     let settings = get_settings(app);
+    if play_pause_disabled(&settings) {
+        return;
+    }
     match settings.keyboard_implementation {
         KeyboardImplementation::Tauri => tauri_impl::register_play_pause_shortcut(app),
         KeyboardImplementation::HandyKeys => handy_keys::register_play_pause_shortcut(app),
@@ -64,6 +75,9 @@ pub fn register_play_pause_shortcut(app: &AppHandle) {
 /// Unregister the play/pause shortcut (called when speaking stops)
 pub fn unregister_play_pause_shortcut(app: &AppHandle) {
     let settings = get_settings(app);
+    if play_pause_disabled(&settings) {
+        return;
+    }
     match settings.keyboard_implementation {
         KeyboardImplementation::Tauri => tauri_impl::unregister_play_pause_shortcut(app),
         KeyboardImplementation::HandyKeys => handy_keys::unregister_play_pause_shortcut(app),
@@ -559,6 +573,15 @@ pub fn change_overlay_position_setting(app: AppHandle, position: String) -> Resu
 
 #[tauri::command]
 #[specta::specta]
+pub fn change_model_unload_timeout_setting(app: AppHandle, timeout: String) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    settings.model_unload_timeout = ModelUnloadTimeout::from_setting_value(&timeout)?;
+    settings::write_settings(&app, settings);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn change_debug_mode_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
     let mut settings = settings::get_settings(&app);
     settings.debug_mode = enabled;
@@ -642,15 +665,6 @@ pub fn change_update_checks_setting(app: AppHandle, enabled: bool) -> Result<(),
 
 #[tauri::command]
 #[specta::specta]
-pub fn change_experimental_enabled_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
-    let mut settings = settings::get_settings(&app);
-    settings.experimental_enabled = enabled;
-    settings::write_settings(&app, settings);
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
 pub fn change_app_language_setting(app: AppHandle, language: String) -> Result<(), String> {
     let mut settings = settings::get_settings(&app);
     settings.app_language = language.clone();
@@ -672,15 +686,6 @@ pub fn change_show_tray_icon_setting(app: AppHandle, enabled: bool) -> Result<()
     // Apply change immediately
     tray::set_tray_visibility(&app, enabled);
 
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn change_tts_workers_setting(app: AppHandle, workers: usize) -> Result<(), String> {
-    let mut settings = settings::get_settings(&app);
-    settings.tts_workers = workers.min(4);
-    settings::write_settings(&app, settings);
     Ok(())
 }
 

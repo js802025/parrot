@@ -141,7 +141,15 @@
         "translation": "Tradução",
         "allLanguages": "Todos os Idiomas"
       },
-      "noModelsMatch": "Nenhum modelo corresponde a este filtro."
+      "noModelsMatch": "Nenhum modelo corresponde a este filtro.",
+      "searchPlaceholder": "Pesquisar modelos",
+      "huggingFace": {
+        "title": "Adicionar do Hugging Face",
+        "placeholder": "owner/model ou URL do huggingface.co",
+        "add": "Adicionar",
+        "adding": "Adicionando...",
+        "hint": "Suporta vozes Piper (.onnx + .onnx.json) e modelos Kokoro ONNX (.onnx + voices .bin)."
+      }
     },
     "sound": {
       "title": "Som",
@@ -165,13 +173,7 @@
       "groups": {
         "app": "Aplicativo",
         "speech": "Speech",
-        "history": "Histórico",
-        "experimental": "Experimental"
-      },
-      "ttsWorkers": {
-        "title": "TTS Workers",
-        "description": "Number of parallel synthesis engines. Auto uses your CPU core count to decide.",
-        "auto": "Auto"
+        "history": "Histórico"
       },
       "ttsSpeed": {
         "title": "Speech Speed",
@@ -180,10 +182,6 @@
       "shortenFirstChunk": {
         "title": "Fast First Response",
         "description": "Synthesize a shorter first chunk for faster time-to-speech, then use longer chunks."
-      },
-      "experimentalToggle": {
-        "label": "Recursos Experimentais",
-        "description": "Ativar recursos experimentais que ainda estão em desenvolvimento."
       },
       "startHidden": {
         "label": "Iniciar Oculto",

@@ -85,6 +85,14 @@ async changeOverlayPositionSetting(position: string) : Promise<Result<null, stri
     else return { status: "error", error: e  as any };
 }
 },
+async changeModelUnloadTimeoutSetting(timeout: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_model_unload_timeout_setting", { timeout }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async changeDebugModeSetting(enabled: boolean) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("change_debug_mode_setting", { enabled }) };
@@ -96,14 +104,6 @@ async changeDebugModeSetting(enabled: boolean) : Promise<Result<null, string>> {
 async changeShowCloseButtonSetting(enabled: boolean) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("change_show_close_button_setting", { enabled }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async changeExperimentalEnabledSetting(enabled: boolean) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_experimental_enabled_setting", { enabled }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -171,14 +171,6 @@ async getKeyboardImplementation() : Promise<string> {
 async changeShowTrayIconSetting(enabled: boolean) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("change_show_tray_icon_setting", { enabled }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async changeTtsWorkersSetting(workers: number) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_tts_workers_setting", { workers }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -354,6 +346,22 @@ async downloadModel(modelId: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async refreshModelCatalog() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("refresh_model_catalog") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async addHuggingfaceModel(repo: string) : Promise<Result<ModelInfo[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("add_huggingface_model", { repo }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async deleteModel(modelId: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("delete_model", { modelId }) };
@@ -386,9 +394,9 @@ async getCurrentModel() : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async getTranscriptionModelStatus() : Promise<Result<string | null, string>> {
+async getTtsModelStatus() : Promise<Result<string | null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("get_transcription_model_status") };
+    return { status: "ok", data: await TAURI_INVOKE("get_tts_model_status") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -547,11 +555,11 @@ async isLaptop() : Promise<Result<boolean, string>> {
 
 /** user-defined types **/
 
-export type AppSettings = { bindings: Partial<{ [key in string]: ShortcutBinding }>; audio_feedback: boolean; audio_feedback_volume?: number; sound_theme?: SoundTheme; start_hidden?: boolean; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_output_device?: string | null; selected_language?: string; selected_kokoro_voice?: string | null; show_close_button?: boolean; overlay_position?: OverlayPosition; debug_mode?: boolean; log_level?: LogLevel; model_unload_timeout?: ModelUnloadTimeout; history_limit?: number; history_retention_period?: HistoryRetentionPeriod; app_language?: string; experimental_enabled?: boolean; keyboard_implementation?: KeyboardImplementation; show_tray_icon?: boolean; tts_workers?: number; tts_speed?: number; tts_shorten_first_chunk?: boolean }
+export type AppSettings = { bindings: Partial<{ [key in string]: ShortcutBinding }>; audio_feedback: boolean; audio_feedback_volume?: number; sound_theme?: SoundTheme; start_hidden?: boolean; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_output_device?: string | null; selected_language?: string; selected_kokoro_voice?: string | null; show_close_button?: boolean; overlay_position?: OverlayPosition; debug_mode?: boolean; log_level?: LogLevel; model_unload_timeout?: ModelUnloadTimeout; history_limit?: number; history_retention_period?: HistoryRetentionPeriod; app_language?: string; keyboard_implementation?: KeyboardImplementation; show_tray_icon?: boolean; tts_speed?: number; tts_shorten_first_chunk?: boolean }
 export type AudioDevice = { index: string; name: string; is_default: boolean }
 export type BindingResponse = { success: boolean; binding: ShortcutBinding | null; error: string | null }
 export type CustomSounds = { start: boolean; stop: boolean }
-export type EngineType = "Kokoro"
+export type EngineType = "Kokoro" | "Piper"
 export type HistoryEntry = { id: number; file_name: string; timestamp: number; saved: boolean; title: string; transcription_text: string }
 export type HistoryRetentionPeriod = "never" | "preserve_limit" | "days_3" | "weeks_2" | "months_3"
 /**

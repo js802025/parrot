@@ -1,5 +1,5 @@
 use crate::managers::model::{ModelInfo, ModelManager};
-use crate::managers::tts::{TTSManager, MODEL_ID as TTS_MODEL_ID};
+use crate::managers::tts::TTSManager;
 use crate::settings::{get_settings, write_settings};
 use std::sync::Arc;
 use tauri::{AppHandle, State};
@@ -60,7 +60,7 @@ pub async fn delete_model(
     }
 
     // Unload TTS model from memory if it's the one being deleted
-    if model_id == TTS_MODEL_ID && tts_manager.is_model_loaded() {
+    if tts_manager.get_current_model().as_deref() == Some(model_id.as_str()) {
         tts_manager.unload_model().map_err(|e| e.to_string())?;
     }
 
@@ -91,10 +91,13 @@ pub async fn set_active_model(
     settings.selected_model = model_id.clone();
     write_settings(&app_handle, settings);
 
-    // Preload the TTS model in the background
-    if model_id == TTS_MODEL_ID {
-        tts_manager.initiate_model_load();
+    // Swap engines if another model is loaded, then preload in the background.
+    if tts_manager.is_model_loaded()
+        && tts_manager.get_current_model().as_deref() != Some(model_id.as_str())
+    {
+        tts_manager.unload_model().map_err(|e| e.to_string())?;
     }
+    tts_manager.initiate_model_load();
 
     Ok(())
 }
@@ -129,7 +132,7 @@ pub async fn get_current_model(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn get_transcription_model_status(
+pub async fn get_tts_model_status(
     tts_manager: State<'_, Arc<TTSManager>>,
 ) -> Result<Option<String>, String> {
     Ok(tts_manager.get_current_model())
@@ -168,5 +171,28 @@ pub async fn cancel_download(
 ) -> Result<(), String> {
     model_manager
         .cancel_download(&model_id)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn refresh_model_catalog(
+    model_manager: State<'_, Arc<ModelManager>>,
+) -> Result<(), String> {
+    model_manager
+        .refresh_huggingface_catalog()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn add_huggingface_model(
+    model_manager: State<'_, Arc<ModelManager>>,
+    repo: String,
+) -> Result<Vec<ModelInfo>, String> {
+    model_manager
+        .add_huggingface_model(&repo)
+        .await
         .map_err(|e| e.to_string())
 }
