@@ -31,7 +31,7 @@ export const ModelSettingsCard: React.FC = () => {
   return (
     <SettingsGroup
       title={t("settings.modelSettings.title", {
-        model: currentModelInfo.name,
+        model: currentModelInfo.group?.name ?? currentModelInfo.name,
       })}
     >
       {isKokoro && (
