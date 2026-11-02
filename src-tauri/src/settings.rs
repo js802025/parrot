@@ -222,6 +222,9 @@ pub struct AppSettings {
     pub selected_language: String,
     #[serde(default)]
     pub selected_kokoro_voice: Option<String>,
+    /// Voice (speaker) chosen for each model, keyed by model id.
+    #[serde(default)]
+    pub selected_voices: HashMap<String, String>,
     #[serde(default = "default_show_close_button")]
     pub show_close_button: bool,
     #[serde(default = "default_overlay_position")]
@@ -375,6 +378,7 @@ pub fn get_default_settings() -> AppSettings {
         selected_output_device: None,
         selected_language: "auto".to_string(),
         selected_kokoro_voice: None,
+        selected_voices: HashMap::new(),
         overlay_position: default_overlay_position(),
         debug_mode: false,
         log_level: default_log_level(),

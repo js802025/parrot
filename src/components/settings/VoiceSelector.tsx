@@ -1,12 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { commands } from "@/bindings";
+import { commands, type ModelInfo } from "@/bindings";
 import { SettingContainer } from "../ui/SettingContainer";
 import { ResetButton } from "../ui/ResetButton";
 import { Dropdown, type DropdownOption } from "../ui/Dropdown";
 import { useSettings } from "../../hooks/useSettings";
+import { useModelStore } from "../../stores/modelStore";
 
-interface KokoroVoiceSelectorProps {
+interface VoiceSelectorProps {
+  model: ModelInfo;
+  voices: string[];
+  onRefresh: () => void;
   descriptionMode?: "inline" | "tooltip";
   grouped?: boolean;
 }
@@ -94,76 +98,152 @@ function getVoiceLabel(voiceId: string): string {
   return voiceId;
 }
 
-export const KokoroVoiceSelector: React.FC<KokoroVoiceSelectorProps> = ({
-  descriptionMode = "tooltip",
-  grouped = false,
-}) => {
-  const { t } = useTranslation();
-  const { getSetting, updateSetting, resetSetting, isUpdating } = useSettings();
+/** Voices (speakers) of the loaded model, reloaded when the model changes. */
+export function useModelVoices(modelId: string | null) {
   const [voices, setVoices] = useState<string[]>([]);
 
-  const selectedVoice = getSetting("selected_kokoro_voice") ?? null;
-
   const loadVoices = useCallback(async () => {
+    if (!modelId) {
+      setVoices([]);
+      return;
+    }
     try {
-      const result = await commands.getKokoroVoices();
-      if (result.status === "ok") {
-        setVoices(result.data);
-      } else {
-        setVoices([]);
-      }
+      const result = await commands.getVoices();
+      setVoices(result.status === "ok" ? result.data : []);
     } catch {
       setVoices([]);
     }
-  }, []);
+  }, [modelId]);
 
   useEffect(() => {
     void loadVoices();
   }, [loadVoices]);
 
-  const dropdownOptions: DropdownOption[] = useMemo(() => {
+  return { voices, loadVoices };
+}
+
+/** Name of a grouped model without its group prefix, e.g. "lessac (medium)". */
+export function groupedModelLabel(model: ModelInfo): string {
+  const prefix = model.group ? `${model.group.name} ` : "";
+  const name =
+    prefix && model.name.startsWith(prefix)
+      ? model.name.slice(prefix.length)
+      : model.name;
+  return model.description && !model.description.startsWith("Piper voice")
+    ? `${name} · ${model.description}`
+    : name;
+}
+
+/** Downloaded models in the same group as `model`, e.g. other Piper voices. */
+export function downloadedGroupModels(
+  model: ModelInfo,
+  models: ModelInfo[],
+): ModelInfo[] {
+  if (!model.group) return [];
+  return models
+    .filter((m) => m.group?.id === model.group?.id && m.is_downloaded)
+    .sort((a, b) => groupedModelLabel(a).localeCompare(groupedModelLabel(b)));
+}
+
+export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
+  model,
+  voices,
+  onRefresh,
+  descriptionMode = "tooltip",
+  grouped = false,
+}) => {
+  const { t } = useTranslation();
+  const { getSetting, refreshSettings } = useSettings();
+  const { models, selectModel } = useModelStore();
+  const [updating, setUpdating] = useState(false);
+  const isKokoro = model.engine_type === "Kokoro";
+  const groupModels = downloadedGroupModels(model, models);
+
+  const selectedVoice =
+    getSetting("selected_voices")?.[model.id] ??
+    (isKokoro ? getSetting("selected_kokoro_voice") : null) ??
+    null;
+
+  const voiceOptions: DropdownOption[] = useMemo(() => {
     return [
       {
         value: "__auto__",
-        label: t("settings.modelSettings.kokoroVoice.auto"),
+        label: isKokoro
+          ? t("settings.modelSettings.kokoroVoice.auto")
+          : t("settings.modelSettings.speaker.default"),
       },
       ...voices.map((voice) => ({
         value: voice,
-        label: getVoiceLabel(voice),
+        label: isKokoro ? getVoiceLabel(voice) : voice,
       })),
     ];
-  }, [voices, t]);
+  }, [voices, isKokoro, t]);
 
-  const handleSelectVoice = async (value: string) => {
-    const voiceValue = value === "__auto__" ? null : value;
-    await updateSetting("selected_kokoro_voice", voiceValue);
+  const saveVoice = async (voice: string | null) => {
+    setUpdating(true);
+    try {
+      await commands.changeVoiceSetting(model.id, voice);
+      if (isKokoro && voice === null) {
+        await commands.changeKokoroVoiceSetting(null);
+      }
+      await refreshSettings();
+    } finally {
+      setUpdating(false);
+    }
   };
-
-  const handleReset = async () => {
-    await resetSetting("selected_kokoro_voice");
-  };
-
-  const selectedValue = selectedVoice ?? "__auto__";
-  const disabled = isUpdating("selected_kokoro_voice");
 
   return (
-    <SettingContainer
-      title={t("settings.modelSettings.kokoroVoice.title")}
-      description={t("settings.modelSettings.kokoroVoice.description")}
-      descriptionMode={descriptionMode}
-      grouped={grouped}
-    >
-      <div className="flex items-center space-x-1">
-        <Dropdown
-          options={dropdownOptions}
-          selectedValue={selectedValue}
-          onSelect={handleSelectVoice}
-          disabled={disabled}
-          onRefresh={loadVoices}
-          placeholder={t("settings.modelSettings.kokoroVoice.auto")}
-        />
-        <ResetButton onClick={handleReset} disabled={disabled} />
-      </div>
-    </SettingContainer>
+    <>
+      {groupModels.length > 1 && (
+        <SettingContainer
+          title={t("settings.modelSettings.voice.title")}
+          description={t("settings.modelSettings.voice.description")}
+          descriptionMode={descriptionMode}
+          grouped={grouped}
+        >
+          <Dropdown
+            options={groupModels.map((m) => ({
+              value: m.id,
+              label: groupedModelLabel(m),
+            }))}
+            selectedValue={model.id}
+            onSelect={(id) => void selectModel(id)}
+          />
+        </SettingContainer>
+      )}
+      {(isKokoro || voices.length > 1) && (
+        <SettingContainer
+          title={
+            isKokoro
+              ? t("settings.modelSettings.kokoroVoice.title")
+              : t("settings.modelSettings.speaker.title")
+          }
+          description={
+            isKokoro
+              ? t("settings.modelSettings.kokoroVoice.description")
+              : t("settings.modelSettings.speaker.description")
+          }
+          descriptionMode={descriptionMode}
+          grouped={grouped}
+        >
+          <div className="flex items-center space-x-1">
+            <Dropdown
+              options={voiceOptions}
+              selectedValue={selectedVoice ?? "__auto__"}
+              onSelect={(value) =>
+                void saveVoice(value === "__auto__" ? null : value)
+              }
+              disabled={updating}
+              onRefresh={onRefresh}
+              placeholder={voiceOptions[0].label}
+            />
+            <ResetButton
+              onClick={() => void saveVoice(null)}
+              disabled={updating}
+            />
+          </div>
+        </SettingContainer>
+      )}
+    </>
   );
 };

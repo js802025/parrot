@@ -89,6 +89,15 @@
         "loading": "Loading voices...",
         "noResults": "No voices found",
         "loadError": "Could not load available voices."
+      },
+      "voice": {
+        "title": "Голос",
+        "description": "Перемикайтеся між завантаженими голосами. Інші можна завантажити на сторінці «Моделі»."
+      },
+      "speaker": {
+        "title": "Диктор",
+        "description": "Цей голос має кількох дикторів. Виберіть одного.",
+        "default": "За замовчуванням"
       }
     },
     "general": {
@@ -149,6 +158,13 @@
         "add": "Додати",
         "adding": "Додавання...",
         "hint": "Підтримуються голоси Piper (.onnx + .onnx.json) і моделі Kokoro ONNX (.onnx + voices .bin)."
+      },
+      "group": {
+        "voiceCount": "Голосів: {{count}}",
+        "languageCount": "Мов: {{count}}",
+        "show": "Показати голоси",
+        "hide": "Сховати голоси",
+        "use": "Вибрати"
       }
     },
     "sound": {

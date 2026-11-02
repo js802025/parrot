@@ -89,6 +89,15 @@
         "loading": "Loading voices...",
         "noResults": "No voices found",
         "loadError": "Could not load available voices."
+      },
+      "voice": {
+        "title": "الصوت",
+        "description": "بدّل بين الأصوات التي نزّلتها. نزّل المزيد من صفحة النماذج."
+      },
+      "speaker": {
+        "title": "المتحدث",
+        "description": "هذا الصوت يضم عدة متحدثين. اختر واحدًا.",
+        "default": "افتراضي"
       }
     },
     "general": {
@@ -149,6 +158,13 @@
         "add": "إضافة",
         "adding": "جارٍ الإضافة...",
         "hint": "يدعم أصوات Piper (‎.onnx + .onnx.json) ونماذج Kokoro ONNX (‎.onnx + ملف voices ‎.bin)."
+      },
+      "group": {
+        "voiceCount": "{{count}} أصوات",
+        "languageCount": "{{count}} لغات",
+        "show": "عرض الأصوات",
+        "hide": "إخفاء الأصوات",
+        "use": "استخدام"
       }
     },
     "sound": {

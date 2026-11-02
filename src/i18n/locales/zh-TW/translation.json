@@ -89,6 +89,15 @@
         "loading": "Loading voices...",
         "noResults": "No voices found",
         "loadError": "Could not load available voices."
+      },
+      "voice": {
+        "title": "聲音",
+        "description": "在已下載的聲音之間切換。可在「模型」頁面下載更多。"
+      },
+      "speaker": {
+        "title": "說話者",
+        "description": "此聲音包含多位說話者，請選擇一位。",
+        "default": "預設"
       }
     },
     "general": {
@@ -149,6 +158,13 @@
         "add": "新增",
         "adding": "正在新增...",
         "hint": "支援 Piper 語音（.onnx + .onnx.json）與 Kokoro ONNX 模型（.onnx + voices .bin）。"
+      },
+      "group": {
+        "voiceCount": "{{count}} 個聲音",
+        "languageCount": "{{count}} 種語言",
+        "show": "顯示聲音",
+        "hide": "隱藏聲音",
+        "use": "使用"
       }
     },
     "sound": {

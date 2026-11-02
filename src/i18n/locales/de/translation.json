@@ -89,6 +89,15 @@
         "loading": "Loading voices...",
         "noResults": "No voices found",
         "loadError": "Could not load available voices."
+      },
+      "voice": {
+        "title": "Stimme",
+        "description": "Wechsle zwischen deinen heruntergeladenen Stimmen. Weitere gibt es auf der Seite Modelle."
+      },
+      "speaker": {
+        "title": "Sprecher",
+        "description": "Diese Stimme hat mehrere Sprecher. Wähle einen aus.",
+        "default": "Standard"
       }
     },
     "general": {
@@ -149,6 +158,13 @@
         "add": "Hinzufügen",
         "adding": "Wird hinzugefügt...",
         "hint": "Unterstützt Piper-Stimmen (.onnx + .onnx.json) und Kokoro-ONNX-Modelle (.onnx + voices-.bin)."
+      },
+      "group": {
+        "voiceCount": "{{count}} Stimmen",
+        "languageCount": "{{count}} Sprachen",
+        "show": "Stimmen anzeigen",
+        "hide": "Stimmen ausblenden",
+        "use": "Verwenden"
       }
     },
     "sound": {

@@ -23,9 +23,7 @@ pub async fn get_model_info(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn get_kokoro_voices(
-    tts_manager: State<'_, Arc<TTSManager>>,
-) -> Result<Vec<String>, String> {
+pub async fn get_voices(tts_manager: State<'_, Arc<TTSManager>>) -> Result<Vec<String>, String> {
     tts_manager
         .get_available_voices()
         .map_err(|e| e.to_string())

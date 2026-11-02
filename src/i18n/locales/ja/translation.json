@@ -89,6 +89,15 @@
         "loading": "Loading voices...",
         "noResults": "No voices found",
         "loadError": "Could not load available voices."
+      },
+      "voice": {
+        "title": "音声",
+        "description": "ダウンロード済みの音声を切り替えます。ほかの音声はモデルページからダウンロードできます。"
+      },
+      "speaker": {
+        "title": "話者",
+        "description": "この音声には複数の話者がいます。1人選んでください。",
+        "default": "デフォルト"
       }
     },
     "general": {
@@ -149,6 +158,13 @@
         "add": "追加",
         "adding": "追加中...",
         "hint": "Piper 音声（.onnx + .onnx.json）と Kokoro ONNX モデル（.onnx + voices .bin）に対応しています。"
+      },
+      "group": {
+        "voiceCount": "{{count}} 個の音声",
+        "languageCount": "{{count}} 言語",
+        "show": "音声を表示",
+        "hide": "音声を隠す",
+        "use": "使用"
       }
     },
     "sound": {

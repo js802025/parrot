@@ -1,7 +1,7 @@
 use tts_rs::{engines::piper::PiperEngine, SynthesisResult};
 
 use super::{HfRepo, LoadContext, ModelFamily, SpeechEngine};
-use crate::managers::model::{downloadable_model, file_name, EngineType, ModelInfo};
+use crate::managers::model::{downloadable_model, file_name, EngineType, ModelGroup, ModelInfo};
 
 pub struct Piper;
 
@@ -20,7 +20,7 @@ impl ModelFamily for Piper {
             .map(|onnx| {
                 let onnx_name = file_name(onnx);
                 let stem = onnx_name.trim_end_matches(".onnx").to_string();
-                downloadable_model(
+                let model = downloadable_model(
                     format!("{}--{stem}", repo.slug()),
                     stem,
                     format!("Piper voice from {}", repo.id),
@@ -32,7 +32,14 @@ impl ModelFamily for Piper {
                     ],
                     (0.7, 0.8),
                     false,
-                )
+                );
+                ModelInfo {
+                    group: Some(ModelGroup {
+                        id: repo.slug(),
+                        name: repo.id.to_string(),
+                    }),
+                    ..model
+                }
             })
             .collect()
     }

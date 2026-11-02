@@ -6,7 +6,33 @@ import type { ModelCardStatus } from "@/components/onboarding";
 import { ModelCard } from "@/components/onboarding";
 import { useModelStore } from "@/stores/modelStore";
 import { LANGUAGES } from "@/lib/constants/languages.ts";
-import { commands, type ModelInfo } from "@/bindings";
+import { commands, type ModelGroup, type ModelInfo } from "@/bindings";
+import { ModelGroupCard } from "./ModelGroupCard";
+
+type ModelListEntry =
+  | { kind: "model"; model: ModelInfo }
+  | { kind: "group"; group: ModelGroup; models: ModelInfo[] };
+
+/** Collapse models that share a group into one entry, keeping list order. */
+const groupModels = (models: ModelInfo[]): ModelListEntry[] => {
+  const entries: ModelListEntry[] = [];
+  const groups = new Map<string, ModelInfo[]>();
+  for (const model of models) {
+    if (!model.group) {
+      entries.push({ kind: "model", model });
+      continue;
+    }
+    const members = groups.get(model.group.id);
+    if (members) {
+      members.push(model);
+    } else {
+      const created = [model];
+      groups.set(model.group.id, created);
+      entries.push({ kind: "group", group: model.group, models: created });
+    }
+  }
+  return entries;
+};
 
 const SUPPORTED_ENGINE_TYPES: ModelInfo["engine_type"][] = ["Kokoro", "Piper"];
 
@@ -243,6 +269,37 @@ export const ModelsSettings: React.FC = () => {
     };
   }, [filteredModels, downloadingModels, extractingModels, currentModel]);
 
+  const isFiltering = languageFilter !== "all" || modelSearch.trim() !== "";
+
+  const renderEntry = (entry: ModelListEntry, defaultOpen: boolean) =>
+    entry.kind === "group" ? (
+      <ModelGroupCard
+        key={`group-${entry.group.id}`}
+        group={entry.group}
+        models={entry.models}
+        defaultOpen={defaultOpen}
+        getStatus={getModelStatus}
+        getProgress={getDownloadProgress}
+        onSelect={handleModelSelect}
+        onDownload={handleModelDownload}
+        onDelete={handleModelDelete}
+        onCancel={handleModelCancel}
+      />
+    ) : (
+      <ModelCard
+        key={entry.model.id}
+        model={entry.model}
+        status={getModelStatus(entry.model.id)}
+        onSelect={handleModelSelect}
+        onDownload={handleModelDownload}
+        onDelete={handleModelDelete}
+        onCancel={handleModelCancel}
+        downloadProgress={getDownloadProgress(entry.model.id)}
+        downloadSpeed={getDownloadSpeed(entry.model.id)}
+        showRecommended={false}
+      />
+    );
+
   if (loading) {
     return (
       <div className="max-w-3xl w-full mx-auto">
@@ -405,20 +462,9 @@ export const ModelsSettings: React.FC = () => {
               )}
             </div>
           </div>
-          {downloadedModels.map((model: ModelInfo) => (
-            <ModelCard
-              key={model.id}
-              model={model}
-              status={getModelStatus(model.id)}
-              onSelect={handleModelSelect}
-              onDownload={handleModelDownload}
-              onDelete={handleModelDelete}
-              onCancel={handleModelCancel}
-              downloadProgress={getDownloadProgress(model.id)}
-              downloadSpeed={getDownloadSpeed(model.id)}
-              showRecommended={false}
-            />
-          ))}
+          {groupModels(downloadedModels).map((entry) =>
+            renderEntry(entry, true),
+          )}
         </div>
 
         {/* Available Models Section */}
@@ -427,20 +473,9 @@ export const ModelsSettings: React.FC = () => {
             <h2 className="text-sm font-medium text-text/60">
               {t("settings.models.availableModels")}
             </h2>
-            {availableModels.map((model: ModelInfo) => (
-              <ModelCard
-                key={model.id}
-                model={model}
-                status={getModelStatus(model.id)}
-                onSelect={handleModelSelect}
-                onDownload={handleModelDownload}
-                onDelete={handleModelDelete}
-                onCancel={handleModelCancel}
-                downloadProgress={getDownloadProgress(model.id)}
-                downloadSpeed={getDownloadSpeed(model.id)}
-                showRecommended={false}
-              />
-            ))}
+            {groupModels(availableModels).map((entry) =>
+              renderEntry(entry, isFiltering),
+            )}
           </div>
         )}
 

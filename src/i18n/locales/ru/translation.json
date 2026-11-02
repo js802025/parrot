@@ -89,6 +89,15 @@
         "loading": "Loading voices...",
         "noResults": "No voices found",
         "loadError": "Could not load available voices."
+      },
+      "voice": {
+        "title": "Голос",
+        "description": "Переключайтесь между загруженными голосами. Другие можно скачать на странице «Модели»."
+      },
+      "speaker": {
+        "title": "Диктор",
+        "description": "У этого голоса несколько дикторов. Выберите одного.",
+        "default": "По умолчанию"
       }
     },
     "general": {
@@ -149,6 +158,13 @@
         "add": "Добавить",
         "adding": "Добавление...",
         "hint": "Поддерживаются голоса Piper (.onnx + .onnx.json) и модели Kokoro ONNX (.onnx + voices .bin)."
+      },
+      "group": {
+        "voiceCount": "Голосов: {{count}}",
+        "languageCount": "Языков: {{count}}",
+        "show": "Показать голоса",
+        "hide": "Скрыть голоса",
+        "use": "Выбрать"
       }
     },
     "sound": {

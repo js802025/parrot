@@ -89,6 +89,15 @@
         "loading": "Loading voices...",
         "noResults": "No voices found",
         "loadError": "Could not load available voices."
+      },
+      "voice": {
+        "title": "Ses",
+        "description": "İndirdiğiniz sesler arasında geçiş yapın. Daha fazlasını Modeller sayfasından indirin."
+      },
+      "speaker": {
+        "title": "Konuşmacı",
+        "description": "Bu seste birden fazla konuşmacı var. Birini seçin.",
+        "default": "Varsayılan"
       }
     },
     "general": {
@@ -149,6 +158,13 @@
         "add": "Ekle",
         "adding": "Ekleniyor...",
         "hint": "Piper sesleri (.onnx + .onnx.json) ve Kokoro ONNX modelleri (.onnx + voices .bin) desteklenir."
+      },
+      "group": {
+        "voiceCount": "{{count}} ses",
+        "languageCount": "{{count}} dil",
+        "show": "Sesleri göster",
+        "hide": "Sesleri gizle",
+        "use": "Kullan"
       }
     },
     "sound": {

@@ -567,7 +567,12 @@ impl TTSManager {
             } else {
                 Some(tts_settings.selected_language.clone())
             };
-            let selected_voice_override = tts_settings.selected_kokoro_voice.as_deref();
+            let model_id = selected_model_id(&app_handle);
+            let selected_voice_override = tts_settings
+                .selected_voices
+                .get(&model_id)
+                .or(tts_settings.selected_kokoro_voice.as_ref())
+                .map(String::as_str);
             let available_voices = collect_available_voices(&engine);
             let selected_voice = select_kokoro_voice_for_text(
                 resolved_language.as_deref(),

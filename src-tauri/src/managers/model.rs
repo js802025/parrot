@@ -42,6 +42,14 @@ pub struct ModelComponent {
     pub size_mb: u64,
 }
 
+/// Models that are separate downloads but belong together, such as the voices
+/// of one Piper catalog. The Models page lists a group as a single entry.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, PartialEq, Eq)]
+pub struct ModelGroup {
+    pub id: String,
+    pub name: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ModelInfo {
     pub id: String,
@@ -65,6 +73,8 @@ pub struct ModelInfo {
     /// separately into the model directory.
     #[serde(default)]
     pub components: Vec<ModelComponent>,
+    #[serde(default)]
+    pub group: Option<ModelGroup>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -103,6 +113,7 @@ impl ModelManager {
             "kokoro".to_string(),
             ModelInfo {
                 id: "kokoro".to_string(),
+                group: None,
                 name: "Kokoro-82M".to_string(),
                 description: "Fast and accurate".to_string(),
                 filename: "kokoro".to_string(), // directory name
@@ -1109,6 +1120,7 @@ pub(crate) fn downloadable_model(
     components.sort_by(|a, b| a.filename.cmp(&b.filename));
     ModelInfo {
         filename: id.clone(),
+        group: None,
         id,
         name,
         description,
@@ -1185,19 +1197,25 @@ fn piper_catalog_models(json: &str) -> Result<Vec<ModelInfo>> {
                 "high" => (0.8, 0.6),
                 _ => (0.7, 0.8),
             };
-            Some(downloadable_model(
-                format!("piper-{}", voice.key),
-                format!("Piper {} ({})", voice.name, voice.quality.replace('_', " ")),
-                format!(
-                    "{} ({})",
-                    voice.language.name_english, voice.language.country_english
-                ),
-                EngineType::Piper,
-                piper_languages(&voice.language),
-                components,
-                scores,
-                false,
-            ))
+            Some(ModelInfo {
+                group: Some(ModelGroup {
+                    id: "piper".to_string(),
+                    name: "Piper".to_string(),
+                }),
+                ..downloadable_model(
+                    format!("piper-{}", voice.key),
+                    format!("Piper {} ({})", voice.name, voice.quality.replace('_', " ")),
+                    format!(
+                        "{} ({})",
+                        voice.language.name_english, voice.language.country_english
+                    ),
+                    EngineType::Piper,
+                    piper_languages(&voice.language),
+                    components,
+                    scores,
+                    false,
+                )
+            })
         })
         .collect();
     models.sort_by(|a, b| a.id.cmp(&b.id));
@@ -1334,6 +1352,28 @@ mod huggingface_tests {
             models[0].components[0].url,
             "https://huggingface.co/me/voices/resolve/main/voices/a.onnx"
         );
+    }
+
+    #[test]
+    fn piper_voices_are_grouped() {
+        let json = r#"{"en_US-a-low": {"key": "en_US-a-low", "name": "a", "quality": "low",
+            "language": {"code": "en_US", "family": "en", "name_english": "English", "country_english": "United States"},
+            "files": {"en/a.onnx": {"size_bytes": 1048576}, "en/a.onnx.json": {"size_bytes": 10}}}}"#;
+        let catalog = piper_catalog_models(json).unwrap();
+        assert_eq!(catalog[0].group.as_ref().unwrap().id, "piper");
+
+        let siblings = vec![sibling("a.onnx", 1024), sibling("a.onnx.json", 10)];
+        let repo = models_from_hf_repo("me/voices", &siblings).unwrap();
+        let group = repo[0].group.as_ref().unwrap();
+        assert_eq!(
+            (group.id.as_str(), group.name.as_str()),
+            ("hf-me--voices", "me/voices")
+        );
+
+        let kokoro = vec![sibling("model.onnx", 300), sibling("voices.bin", 27)];
+        assert!(models_from_hf_repo("me/kokoro", &kokoro).unwrap()[0]
+            .group
+            .is_none());
     }
 
     #[test]

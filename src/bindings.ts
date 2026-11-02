@@ -69,6 +69,17 @@ async changeSelectedLanguageSetting(language: string) : Promise<Result<null, str
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Set the voice for one model. `None` goes back to the model's default.
+ */
+async changeVoiceSetting(modelId: string, voice: string | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_voice_setting", { modelId, voice }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async changeKokoroVoiceSetting(voice: string | null) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("change_kokoro_voice_setting", { voice }) };
@@ -330,9 +341,9 @@ async getModelInfo(modelId: string) : Promise<Result<ModelInfo | null, string>> 
     else return { status: "error", error: e  as any };
 }
 },
-async getKokoroVoices() : Promise<Result<string[], string>> {
+async getVoices() : Promise<Result<string[], string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("get_kokoro_voices") };
+    return { status: "ok", data: await TAURI_INVOKE("get_voices") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -555,7 +566,11 @@ async isLaptop() : Promise<Result<boolean, string>> {
 
 /** user-defined types **/
 
-export type AppSettings = { bindings: Partial<{ [key in string]: ShortcutBinding }>; audio_feedback: boolean; audio_feedback_volume?: number; sound_theme?: SoundTheme; start_hidden?: boolean; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_output_device?: string | null; selected_language?: string; selected_kokoro_voice?: string | null; show_close_button?: boolean; overlay_position?: OverlayPosition; debug_mode?: boolean; log_level?: LogLevel; model_unload_timeout?: ModelUnloadTimeout; history_limit?: number; history_retention_period?: HistoryRetentionPeriod; app_language?: string; keyboard_implementation?: KeyboardImplementation; show_tray_icon?: boolean; tts_speed?: number; tts_shorten_first_chunk?: boolean }
+export type AppSettings = { bindings: Partial<{ [key in string]: ShortcutBinding }>; audio_feedback: boolean; audio_feedback_volume?: number; sound_theme?: SoundTheme; start_hidden?: boolean; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_output_device?: string | null; selected_language?: string; selected_kokoro_voice?: string | null; 
+/**
+ * Voice (speaker) chosen for each model, keyed by model id.
+ */
+selected_voices?: { [key in string]: string }; show_close_button?: boolean; overlay_position?: OverlayPosition; debug_mode?: boolean; log_level?: LogLevel; model_unload_timeout?: ModelUnloadTimeout; history_limit?: number; history_retention_period?: HistoryRetentionPeriod; app_language?: string; keyboard_implementation?: KeyboardImplementation; show_tray_icon?: boolean; tts_speed?: number; tts_shorten_first_chunk?: boolean }
 export type AudioDevice = { index: string; name: string; is_default: boolean }
 export type BindingResponse = { success: boolean; binding: ShortcutBinding | null; error: string | null }
 export type CustomSounds = { start: boolean; stop: boolean }
@@ -594,7 +609,12 @@ export type ModelInfo = { id: string; name: string; description: string; filenam
  * archive. When non-empty, `url` is ignored and each component is downloaded
  * separately into the model directory.
  */
-components?: ModelComponent[] }
+components?: ModelComponent[]; group?: ModelGroup | null }
+/**
+ * Models that are separate downloads but belong together, such as the voices
+ * of one Piper catalog. The Models page lists a group as a single entry.
+ */
+export type ModelGroup = { id: string; name: string }
 export type ModelStatus = { model_id: string; model_name: string; model_description: string; accuracy_score: number; speed_score: number; is_recommended: boolean; model_dir: string; model_files_present: boolean; model_loaded: boolean }
 export type ModelUnloadTimeout = "never" | "immediately" | "min_2" | "min_5" | "min_10" | "min_15" | "hour_1" | "sec_5"
 export type OverlayPosition = "none" | "top" | "bottom"

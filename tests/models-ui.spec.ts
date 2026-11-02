@@ -20,6 +20,8 @@ const model = (overrides: Record<string, unknown>) => ({
   ...overrides,
 });
 
+const piper = { id: "piper", name: "Piper" };
+
 const models = [
   model({
     id: "kokoro",
@@ -33,12 +35,14 @@ const models = [
     id: "piper-en_US-lessac-medium",
     name: "Piper lessac (medium)",
     description: "English (United States)",
+    group: piper,
   }),
   model({
     id: "piper-de_DE-thorsten-high",
     name: "Piper thorsten (high)",
     description: "German (Germany)",
     supported_languages: ["de"],
+    group: piper,
   }),
 ];
 
@@ -57,11 +61,28 @@ test.describe("Models page with Hugging Face models", () => {
       get_current_model: "kokoro",
     });
     await openModels(page);
-    await expect(page.getByText("Piper lessac (medium)")).toBeVisible();
-    await expect(page.getByText("Piper thorsten (high)")).toBeVisible();
+    const group = page.getByTestId("model-group-piper");
+    await expect(group).toHaveCount(1);
+    await expect(group).toContainText("2 voices · 2 languages");
+    await expect(
+      page.getByText("lessac (medium)", { exact: false }),
+    ).toHaveCount(0);
+
+    await group.getByRole("button", { name: /Show voices/ }).click();
+    await expect(
+      group.getByText("lessac (medium) · English (United States)"),
+    ).toBeVisible();
+    await group
+      .getByTestId("group-voice-piper-de_DE-thorsten-high")
+      .getByRole("button")
+      .click();
 
     const calls = await invokeCalls(page);
     expect(calls.map((c) => c.cmd)).toContain("refresh_model_catalog");
+    expect(calls).toContainEqual({
+      cmd: "download_model",
+      args: { modelId: "piper-de_DE-thorsten-high" },
+    });
   });
 
   test("search filters the model list", async ({ page }) => {
@@ -71,8 +92,10 @@ test.describe("Models page with Hugging Face models", () => {
     });
     await openModels(page);
     await page.getByPlaceholder("Search models").fill("german");
-    await expect(page.getByText("Piper thorsten (high)")).toBeVisible();
-    await expect(page.getByText("Piper lessac (medium)")).toHaveCount(0);
+    await expect(
+      page.getByText("thorsten (high) · German (Germany)"),
+    ).toBeVisible();
+    await expect(page.getByText(/lessac/)).toHaveCount(0);
   });
 
   test("adds a model by Hugging Face repo id", async ({ page }) => {
@@ -110,5 +133,32 @@ test.describe("Models page with Hugging Face models", () => {
     await expect(page.getByRole("alert")).toHaveText(
       "someone/llm has no model Parrot can run.",
     );
+  });
+
+  test("switches between downloaded Piper voices from General settings", async ({
+    page,
+  }) => {
+    const downloaded = models.map((m) =>
+      m.group ? { ...m, is_downloaded: true } : m,
+    );
+    await mockTauri(page, {
+      get_available_models: downloaded,
+      get_current_model: "piper-en_US-lessac-medium",
+      get_voices: ["lessac"],
+    });
+    await page.goto("/");
+    const picker = page.getByRole("button", {
+      name: "lessac (medium) · English (United States)",
+    });
+    await expect(picker).toBeVisible();
+    await expect(page.getByText("Speaker", { exact: true })).toHaveCount(0);
+    await picker.click();
+    await page.getByText("thorsten (high) · German (Germany)").click();
+
+    const calls = await invokeCalls(page);
+    expect(calls).toContainEqual({
+      cmd: "set_active_model",
+      args: { modelId: "piper-de_DE-thorsten-high" },
+    });
   });
 });

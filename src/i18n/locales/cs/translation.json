@@ -89,6 +89,15 @@
         "loading": "Loading voices...",
         "noResults": "No voices found",
         "loadError": "Could not load available voices."
+      },
+      "voice": {
+        "title": "Hlas",
+        "description": "Přepínejte mezi staženými hlasy. Další stáhnete na stránce Modely."
+      },
+      "speaker": {
+        "title": "Mluvčí",
+        "description": "Tento hlas má více mluvčích. Vyberte jednoho.",
+        "default": "Výchozí"
       }
     },
     "general": {
@@ -149,6 +158,13 @@
         "add": "Přidat",
         "adding": "Přidávání...",
         "hint": "Podporuje hlasy Piper (.onnx + .onnx.json) a modely Kokoro ONNX (.onnx + voices .bin)."
+      },
+      "group": {
+        "voiceCount": "{{count}} hlasů",
+        "languageCount": "{{count}} jazyků",
+        "show": "Zobrazit hlasy",
+        "hide": "Skrýt hlasy",
+        "use": "Použít"
       }
     },
     "sound": {

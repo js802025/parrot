@@ -89,6 +89,15 @@
         "loading": "Loading voices...",
         "noResults": "No voices found",
         "loadError": "Could not load available voices."
+      },
+      "voice": {
+        "title": "Voce",
+        "description": "Passa da una voce scaricata all'altra. Scaricane altre dalla pagina Modelli."
+      },
+      "speaker": {
+        "title": "Parlante",
+        "description": "Questa voce ha più parlanti. Scegline uno.",
+        "default": "Predefinito"
       }
     },
     "general": {
@@ -149,6 +158,13 @@
         "add": "Aggiungi",
         "adding": "Aggiunta...",
         "hint": "Supporta voci Piper (.onnx + .onnx.json) e modelli Kokoro ONNX (.onnx + voices .bin)."
+      },
+      "group": {
+        "voiceCount": "{{count}} voci",
+        "languageCount": "{{count}} lingue",
+        "show": "Mostra voci",
+        "hide": "Nascondi voci",
+        "use": "Usa"
       }
     },
     "sound": {

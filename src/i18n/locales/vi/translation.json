@@ -89,6 +89,15 @@
         "loading": "Đang tải giọng nói...",
         "noResults": "Không tìm thấy giọng nói",
         "loadError": "Không thể tải danh sách giọng nói."
+      },
+      "voice": {
+        "title": "Giọng",
+        "description": "Chuyển giữa các giọng bạn đã tải. Tải thêm ở trang Mô hình."
+      },
+      "speaker": {
+        "title": "Người nói",
+        "description": "Giọng này có nhiều người nói. Hãy chọn một.",
+        "default": "Mặc định"
       }
     },
     "general": {
@@ -149,6 +158,13 @@
         "add": "Thêm",
         "adding": "Đang thêm...",
         "hint": "Hỗ trợ giọng Piper (.onnx + .onnx.json) và mô hình Kokoro ONNX (.onnx + voices .bin)."
+      },
+      "group": {
+        "voiceCount": "{{count}} giọng",
+        "languageCount": "{{count}} ngôn ngữ",
+        "show": "Hiện giọng",
+        "hide": "Ẩn giọng",
+        "use": "Dùng"
       }
     },
     "sound": {

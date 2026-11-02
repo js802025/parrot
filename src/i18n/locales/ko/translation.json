@@ -89,6 +89,15 @@
         "loading": "Loading voices...",
         "noResults": "No voices found",
         "loadError": "Could not load available voices."
+      },
+      "voice": {
+        "title": "음성",
+        "description": "다운로드한 음성 간에 전환합니다. 모델 페이지에서 더 다운로드할 수 있습니다."
+      },
+      "speaker": {
+        "title": "화자",
+        "description": "이 음성에는 여러 화자가 있습니다. 하나를 선택하세요.",
+        "default": "기본값"
       }
     },
     "general": {
@@ -149,6 +158,13 @@
         "add": "추가",
         "adding": "추가 중...",
         "hint": "Piper 음성(.onnx + .onnx.json)과 Kokoro ONNX 모델(.onnx + voices .bin)을 지원합니다."
+      },
+      "group": {
+        "voiceCount": "음성 {{count}}개",
+        "languageCount": "언어 {{count}}개",
+        "show": "음성 보기",
+        "hide": "음성 숨기기",
+        "use": "사용"
       }
     },
     "sound": {

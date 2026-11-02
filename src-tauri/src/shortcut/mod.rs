@@ -538,6 +538,26 @@ pub fn change_selected_language_setting(app: AppHandle, language: String) -> Res
     Ok(())
 }
 
+/// Set the voice for one model. `None` goes back to the model's default.
+#[tauri::command]
+#[specta::specta]
+pub fn change_voice_setting(
+    app: AppHandle,
+    model_id: String,
+    voice: Option<String>,
+) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    match voice
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+    {
+        Some(voice) => settings.selected_voices.insert(model_id, voice),
+        None => settings.selected_voices.remove(&model_id),
+    };
+    settings::write_settings(&app, settings);
+    Ok(())
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn change_kokoro_voice_setting(app: AppHandle, voice: Option<String>) -> Result<(), String> {
