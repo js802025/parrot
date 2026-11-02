@@ -160,8 +160,10 @@
         "hint": "Obsługuje głosy Piper (.onnx + .onnx.json) i modele Kokoro ONNX (.onnx + voices .bin)."
       },
       "group": {
-        "voiceCount": "Głosy: {{count}}",
-        "languageCount": "Języki: {{count}}",
+        "voiceCount_one": "{{count}} głos",
+        "voiceCount_other": "Głosy: {{count}}",
+        "languageCount_one": "{{count}} język",
+        "languageCount_other": "Języki: {{count}}",
         "show": "Pokaż głosy",
         "hide": "Ukryj głosy",
         "use": "Użyj"

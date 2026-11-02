@@ -160,8 +160,10 @@
         "hint": "支持 Piper 语音（.onnx + .onnx.json）和 Kokoro ONNX 模型（.onnx + voices .bin）。"
       },
       "group": {
-        "voiceCount": "{{count}} 个声音",
-        "languageCount": "{{count}} 种语言",
+        "voiceCount_one": "{{count}} 个声音",
+        "voiceCount_other": "{{count}} 个声音",
+        "languageCount_one": "{{count}} 种语言",
+        "languageCount_other": "{{count}} 种语言",
         "show": "显示声音",
         "hide": "隐藏声音",
         "use": "使用"

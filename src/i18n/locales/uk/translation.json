@@ -160,8 +160,10 @@
         "hint": "Підтримуються голоси Piper (.onnx + .onnx.json) і моделі Kokoro ONNX (.onnx + voices .bin)."
       },
       "group": {
-        "voiceCount": "Голосів: {{count}}",
-        "languageCount": "Мов: {{count}}",
+        "voiceCount_one": "{{count}} голос",
+        "voiceCount_other": "Голосів: {{count}}",
+        "languageCount_one": "{{count}} мова",
+        "languageCount_other": "Мов: {{count}}",
         "show": "Показати голоси",
         "hide": "Сховати голоси",
         "use": "Вибрати"

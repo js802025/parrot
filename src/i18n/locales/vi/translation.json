@@ -160,8 +160,10 @@
         "hint": "Hỗ trợ giọng Piper (.onnx + .onnx.json) và mô hình Kokoro ONNX (.onnx + voices .bin)."
       },
       "group": {
-        "voiceCount": "{{count}} giọng",
-        "languageCount": "{{count}} ngôn ngữ",
+        "voiceCount_one": "{{count}} giọng",
+        "voiceCount_other": "{{count}} giọng",
+        "languageCount_one": "{{count}} ngôn ngữ",
+        "languageCount_other": "{{count}} ngôn ngữ",
         "show": "Hiện giọng",
         "hide": "Ẩn giọng",
         "use": "Dùng"

@@ -160,8 +160,10 @@
         "hint": "Podporuje hlasy Piper (.onnx + .onnx.json) a modely Kokoro ONNX (.onnx + voices .bin)."
       },
       "group": {
-        "voiceCount": "{{count}} hlasů",
-        "languageCount": "{{count}} jazyků",
+        "voiceCount_one": "{{count}} hlas",
+        "voiceCount_other": "{{count}} hlasů",
+        "languageCount_one": "{{count}} jazyk",
+        "languageCount_other": "{{count}} jazyků",
         "show": "Zobrazit hlasy",
         "hide": "Skrýt hlasy",
         "use": "Použít"

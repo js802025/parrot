@@ -160,8 +160,10 @@
         "hint": "Prend en charge les voix Piper (.onnx + .onnx.json) et les modèles Kokoro ONNX (.onnx + voices .bin)."
       },
       "group": {
-        "voiceCount": "{{count}} voix",
-        "languageCount": "{{count}} langues",
+        "voiceCount_one": "{{count}} voix",
+        "voiceCount_other": "{{count}} voix",
+        "languageCount_one": "{{count}} langue",
+        "languageCount_other": "{{count}} langues",
         "show": "Afficher les voix",
         "hide": "Masquer les voix",
         "use": "Utiliser"

@@ -160,8 +160,10 @@
         "hint": "Supports Piper voices (.onnx + .onnx.json) and Kokoro ONNX models (.onnx + voices .bin)."
       },
       "group": {
-        "voiceCount": "{{count}} voices",
-        "languageCount": "{{count}} languages",
+        "voiceCount_one": "{{count}} voice",
+        "voiceCount_other": "{{count}} voices",
+        "languageCount_one": "{{count}} language",
+        "languageCount_other": "{{count}} languages",
         "show": "Show voices",
         "hide": "Hide voices",
         "use": "Use"

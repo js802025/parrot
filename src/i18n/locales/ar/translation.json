@@ -160,8 +160,10 @@
         "hint": "يدعم أصوات Piper (‎.onnx + .onnx.json) ونماذج Kokoro ONNX (‎.onnx + ملف voices ‎.bin)."
       },
       "group": {
-        "voiceCount": "{{count}} أصوات",
-        "languageCount": "{{count}} لغات",
+        "voiceCount_one": "صوت واحد",
+        "voiceCount_other": "{{count}} أصوات",
+        "languageCount_one": "لغة واحدة",
+        "languageCount_other": "{{count}} لغات",
         "show": "عرض الأصوات",
         "hide": "إخفاء الأصوات",
         "use": "استخدام"

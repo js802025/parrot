@@ -160,8 +160,10 @@
         "hint": "Piper sesleri (.onnx + .onnx.json) ve Kokoro ONNX modelleri (.onnx + voices .bin) desteklenir."
       },
       "group": {
-        "voiceCount": "{{count}} ses",
-        "languageCount": "{{count}} dil",
+        "voiceCount_one": "{{count}} ses",
+        "voiceCount_other": "{{count}} ses",
+        "languageCount_one": "{{count}} dil",
+        "languageCount_other": "{{count}} dil",
         "show": "Sesleri göster",
         "hide": "Sesleri gizle",
         "use": "Kullan"
