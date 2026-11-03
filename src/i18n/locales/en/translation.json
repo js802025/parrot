@@ -138,6 +138,7 @@
       "title": "TTS Models",
       "description": "Select a text-to-speech model or download additional models.",
       "yourModels": "Downloaded Models",
+      "allModels": "Models",
       "availableModels": "Available to Download",
       "downloaded": "Downloaded",
       "available": "Available to Download",
@@ -164,8 +165,8 @@
         "voiceCount_other": "{{count}} voices",
         "languageCount_one": "{{count}} language",
         "languageCount_other": "{{count}} languages",
-        "show": "Show voices",
-        "hide": "Hide voices",
+        "show": "Show all voices",
+        "hide": "Show downloaded only",
         "use": "Use"
       }
     },

@@ -138,6 +138,7 @@
       "title": "転写モデル",
       "description": "転写モデルを選択するか、追加のモデルをダウンロードします。異なるモデルは精度と速度のレベルが異なります。",
       "yourModels": "ダウンロード済みモデル",
+      "allModels": "モデル",
       "availableModels": "ダウンロード可能",
       "downloaded": "ダウンロード済み",
       "available": "ダウンロード可能",

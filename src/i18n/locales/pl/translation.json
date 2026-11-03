@@ -138,6 +138,7 @@
       "title": "Modele transkrypcji",
       "description": "Wybierz model transkrypcji lub pobierz dodatkowe modele. Różne modele oferują różne poziomy dokładności i szybkości.",
       "yourModels": "Pobrane modele",
+      "allModels": "Modele",
       "availableModels": "Dostępne do pobrania",
       "downloaded": "Pobrane",
       "available": "Dostępne do pobrania",

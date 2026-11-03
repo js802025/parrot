@@ -138,6 +138,7 @@
       "title": "Mô hình TTS",
       "description": "Chọn mô hình chuyển đổi văn bản thành giọng nói hoặc tải thêm mô hình.",
       "yourModels": "Mô hình đã tải",
+      "allModels": "Mô hình",
       "availableModels": "Có sẵn để tải xuống",
       "downloaded": "Đã tải xuống",
       "available": "Có thể tải xuống",

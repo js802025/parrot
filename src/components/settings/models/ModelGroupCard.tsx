@@ -36,8 +36,12 @@ export const ModelGroupCard: React.FC<ModelGroupCardProps> = ({
   const [open, setOpen] = useState(defaultOpen);
   useEffect(() => setOpen(defaultOpen), [defaultOpen]);
 
-  const statuses = models.map((m) => getStatus(m.id));
-  const isActive = statuses.includes("active");
+  const isOwned = (status: ModelCardStatus) => status !== "downloadable";
+  const rows = models
+    .map((model) => ({ model, status: getStatus(model.id) }))
+    .sort((a, b) => Number(isOwned(b.status)) - Number(isOwned(a.status)));
+  const visibleRows = open ? rows : rows.filter((row) => isOwned(row.status));
+  const isActive = rows.some((row) => row.status === "active");
   const languageCount = new Set(models.flatMap((m) => m.supported_languages))
     .size;
 
@@ -82,10 +86,9 @@ export const ModelGroupCard: React.FC<ModelGroupCardProps> = ({
         </span>
       </button>
 
-      {open && (
+      {visibleRows.length > 0 && (
         <ul className="flex flex-col divide-y divide-mid-gray/20 border-t border-mid-gray/20">
-          {models.map((model, index) => {
-            const status = statuses[index];
+          {visibleRows.map(({ model, status }) => {
             const progress = getProgress(model.id);
             const label = groupedModelLabel(model);
             return (

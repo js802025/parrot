@@ -138,6 +138,7 @@
       "title": "Modelos TTS",
       "description": "Selecciona un modelo de texto a voz o descarga modelos adicionales.",
       "yourModels": "Modelos descargados",
+      "allModels": "Modelos",
       "availableModels": "Disponibles para descargar",
       "downloaded": "Descargados",
       "available": "Disponibles para Descargar",

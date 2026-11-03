@@ -138,6 +138,7 @@
       "title": "Modèles TTS",
       "description": "Sélectionnez un modèle de synthèse vocale ou téléchargez des modèles supplémentaires.",
       "yourModels": "Modèles téléchargés",
+      "allModels": "Modèles",
       "availableModels": "Disponibles au téléchargement",
       "downloaded": "Téléchargés",
       "available": "Disponibles au Téléchargement",

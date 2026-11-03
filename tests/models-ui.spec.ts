@@ -68,7 +68,7 @@ test.describe("Models page with Hugging Face models", () => {
       page.getByText("lessac (medium)", { exact: false }),
     ).toHaveCount(0);
 
-    await group.getByRole("button", { name: /Show voices/ }).click();
+    await group.getByRole("button", { name: /Show all voices/ }).click();
     await expect(
       group.getByText("lessac (medium) · English (United States)"),
     ).toBeVisible();

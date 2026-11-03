@@ -237,36 +237,20 @@ export const ModelsSettings: React.FC = () => {
     });
   }, [filteredEngineModels, languageFilter, modelSearch]);
 
-  // Split filtered models into downloaded (including custom) and available sections
-  const { downloadedModels, availableModels } = useMemo(() => {
-    const downloaded: ModelInfo[] = [];
-    const available: ModelInfo[] = [];
-
-    for (const model of filteredModels) {
+  // One list: active model first, then downloaded/in-progress, then the rest.
+  // Grouped models (e.g. Piper voices) stay together in one card.
+  const sortedModels = useMemo(() => {
+    const rank = (model: ModelInfo) => {
+      if (model.id === currentModel) return 0;
       if (
-        model.is_custom ||
         model.is_downloaded ||
         model.id in downloadingModels ||
         model.id in extractingModels
-      ) {
-        downloaded.push(model);
-      } else {
-        available.push(model);
-      }
-    }
-
-    // Sort: active model first, then non-custom, then custom at the bottom
-    downloaded.sort((a, b) => {
-      if (a.id === currentModel) return -1;
-      if (b.id === currentModel) return 1;
-      if (a.is_custom !== b.is_custom) return a.is_custom ? 1 : -1;
-      return 0;
-    });
-
-    return {
-      downloadedModels: downloaded,
-      availableModels: available,
+      )
+        return 1;
+      return model.is_custom ? 3 : 2;
     };
+    return [...filteredModels].sort((a, b) => rank(a) - rank(b));
   }, [filteredModels, downloadingModels, extractingModels, currentModel]);
 
   const isFiltering = languageFilter !== "all" || modelSearch.trim() !== "";
@@ -366,11 +350,10 @@ export const ModelsSettings: React.FC = () => {
         />
       </div>
       <div className="space-y-6">
-        {/* Downloaded Models Section — header always visible so filter stays accessible */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-medium text-text/60">
-              {t("settings.models.yourModels")}
+              {t("settings.models.allModels")}
             </h2>
             {/* Language filter dropdown */}
             <div className="relative" ref={languageDropdownRef}>
@@ -462,22 +445,10 @@ export const ModelsSettings: React.FC = () => {
               )}
             </div>
           </div>
-          {groupModels(downloadedModels).map((entry) =>
-            renderEntry(entry, true),
+          {groupModels(sortedModels).map((entry) =>
+            renderEntry(entry, isFiltering),
           )}
         </div>
-
-        {/* Available Models Section */}
-        {availableModels.length > 0 && (
-          <div className="space-y-3">
-            <h2 className="text-sm font-medium text-text/60">
-              {t("settings.models.availableModels")}
-            </h2>
-            {groupModels(availableModels).map((entry) =>
-              renderEntry(entry, isFiltering),
-            )}
-          </div>
-        )}
 
         {filteredModels.length === 0 && (
           <div className="text-center py-8 text-text/50">

@@ -138,6 +138,7 @@
       "title": "轉錄模型",
       "description": "選擇轉錄模型或下載其他模型。不同模型提供不同的準確度和速度",
       "yourModels": "已下載的模型",
+      "allModels": "模型",
       "availableModels": "可供下載",
       "downloaded": "已下載",
       "available": "可下載",
