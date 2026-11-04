@@ -308,10 +308,10 @@ fn resize_and_reposition(
         width: OVERLAY_WIDTH,
         height,
     });
-    // The Linux window is resizable (see create_speaking_overlay), so pin
-    // min = max to stop the window manager offering a resize handle.
+    // Regular Linux windows are resizable (see create_speaking_overlay), so
+    // pin min = max to stop the window manager offering a resize handle.
     #[cfg(target_os = "linux")]
-    {
+    if overlay_window.is_resizable().unwrap_or(false) {
         let _ = overlay_window.set_min_size(Some(size));
         let _ = overlay_window.set_max_size(Some(size));
     }
@@ -435,16 +435,6 @@ pub fn create_speaking_overlay(app_handle: &AppHandle) {
     .focused(false)
     .visible(false);
 
-    // GTK keeps non-resizable windows at least as big as the webview's
-    // natural size (200 px tall), so the overlay could not shrink to fit.
-    #[cfg(target_os = "linux")]
-    {
-        builder = builder
-            .resizable(true)
-            .min_inner_size(OVERLAY_WIDTH, PROCESSING_HEIGHT)
-            .max_inner_size(OVERLAY_WIDTH, PROCESSING_HEIGHT);
-    }
-
     if let Some((x, y)) = position {
         builder = builder.position(x, y);
     }
@@ -456,6 +446,17 @@ pub fn create_speaking_overlay(app_handle: &AppHandle) {
                 debug!("GTK layer shell initialized for overlay window");
             } else {
                 debug!("GTK layer shell not available, falling back to regular window");
+                // GTK keeps non-resizable windows at least as big as the
+                // webview's natural size (200 px tall), so the overlay could
+                // not shrink to fit. Layer-shell surfaces stop drawing when
+                // resizable, so only regular windows get this.
+                let size = tauri::Size::Logical(tauri::LogicalSize {
+                    width: OVERLAY_WIDTH,
+                    height: PROCESSING_HEIGHT,
+                });
+                let _ = window.set_resizable(true);
+                let _ = window.set_min_size(Some(size));
+                let _ = window.set_max_size(Some(size));
             }
             debug!("Speaking overlay window created successfully (hidden)");
         }
