@@ -1132,9 +1132,7 @@ fn parse_hf_repo(input: &str) -> Result<String> {
     if parts.len() == 2 && parts.iter().all(valid) {
         Ok(parts.join("/"))
     } else {
-        anyhow::bail!(
-            "Enter a Hugging Face model as owner/name, e.g. fastrtc/kokoro-onnx"
-        )
+        anyhow::bail!("Enter a Hugging Face model as owner/name, e.g. fastrtc/kokoro-onnx")
     }
 }
 
