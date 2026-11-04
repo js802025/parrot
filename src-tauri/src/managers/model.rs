@@ -1097,6 +1097,18 @@ pub(crate) fn downloadable_model(
     }
 }
 
+fn model_files_present(models_dir: &Path, model: &ModelInfo) -> bool {
+    let path = models_dir.join(&model.filename);
+    if model.components.is_empty() {
+        path.exists()
+    } else {
+        model
+            .components
+            .iter()
+            .all(|c| path.join(&c.filename).exists())
+    }
+}
+
 fn load_cached_huggingface_models(models_dir: &Path) -> Vec<ModelInfo> {
     let mut models = Vec::new();
     if let Ok(json) = fs::read_to_string(models_dir.join(HF_MODELS_FILE)) {
@@ -1108,7 +1120,7 @@ fn load_cached_huggingface_models(models_dir: &Path) -> Vec<ModelInfo> {
                     .filter(|m| m.engine_type != EngineType::Piper)
                     // Hugging Face import is not offered in the UI, so only keep
                     // models the user already has on disk.
-                    .filter(|m| models_dir.join(&m.filename).exists())
+                    .filter(|m| model_files_present(models_dir, m))
                     .map(|mut m| {
                         m.is_custom = false;
                         m
@@ -1223,9 +1235,14 @@ mod huggingface_tests {
         not_downloaded.id = "hf-me--gone".to_string();
         not_downloaded.filename = "gone".to_string();
         added.push(not_downloaded);
+        // "gone" keeps an empty directory, as if its files were deleted by hand.
         for m in &added {
+            let model_dir = dir.join(&m.filename);
+            fs::create_dir_all(&model_dir).unwrap();
             if m.id != "hf-me--gone" {
-                fs::create_dir_all(dir.join(&m.filename)).unwrap();
+                for c in &m.components {
+                    fs::write(model_dir.join(&c.filename), b"x").unwrap();
+                }
             }
         }
         fs::write(
