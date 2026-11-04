@@ -59,14 +59,14 @@ test.describe("Models page", () => {
     });
     await openModels(page);
     const input = page.getByPlaceholder("owner/model or huggingface.co URL");
-    await input.fill("onnx-community/Kokoro-82M-v1.0-ONNX");
+    await input.fill("fastrtc/kokoro-onnx");
     await page.getByRole("button", { name: "Add", exact: true }).click();
     await expect(input).toHaveValue("");
 
     const calls = await invokeCalls(page);
     expect(calls).toContainEqual({
       cmd: "add_huggingface_model",
-      args: { repo: "onnx-community/Kokoro-82M-v1.0-ONNX" },
+      args: { repo: "fastrtc/kokoro-onnx" },
     });
   });
 
