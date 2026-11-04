@@ -1133,7 +1133,7 @@ fn parse_hf_repo(input: &str) -> Result<String> {
         Ok(parts.join("/"))
     } else {
         anyhow::bail!(
-            "Enter a Hugging Face model as owner/name, e.g. onnx-community/Kokoro-82M-v1.0-ONNX"
+            "Enter a Hugging Face model as owner/name, e.g. fastrtc/kokoro-onnx"
         )
     }
 }
