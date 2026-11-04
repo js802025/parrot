@@ -304,10 +304,18 @@ fn resize_and_reposition(
     overlay_window: &tauri::webview::WebviewWindow,
     height: f64,
 ) {
-    let _ = overlay_window.set_size(tauri::Size::Logical(tauri::LogicalSize {
+    let size = tauri::Size::Logical(tauri::LogicalSize {
         width: OVERLAY_WIDTH,
         height,
-    }));
+    });
+    // The Linux window is resizable (see create_speaking_overlay), so pin
+    // min = max to stop the window manager offering a resize handle.
+    #[cfg(target_os = "linux")]
+    {
+        let _ = overlay_window.set_min_size(Some(size));
+        let _ = overlay_window.set_max_size(Some(size));
+    }
+    let _ = overlay_window.set_size(size);
 
     #[cfg(target_os = "linux")]
     {
@@ -431,7 +439,10 @@ pub fn create_speaking_overlay(app_handle: &AppHandle) {
     // natural size (200 px tall), so the overlay could not shrink to fit.
     #[cfg(target_os = "linux")]
     {
-        builder = builder.resizable(true);
+        builder = builder
+            .resizable(true)
+            .min_inner_size(OVERLAY_WIDTH, PROCESSING_HEIGHT)
+            .max_inner_size(OVERLAY_WIDTH, PROCESSING_HEIGHT);
     }
 
     if let Some((x, y)) = position {
