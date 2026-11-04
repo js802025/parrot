@@ -427,6 +427,13 @@ pub fn create_speaking_overlay(app_handle: &AppHandle) {
     .focused(false)
     .visible(false);
 
+    // GTK keeps non-resizable windows at least as big as the webview's
+    // natural size (200 px tall), so the overlay could not shrink to fit.
+    #[cfg(target_os = "linux")]
+    {
+        builder = builder.resizable(true);
+    }
+
     if let Some((x, y)) = position {
         builder = builder.position(x, y);
     }
