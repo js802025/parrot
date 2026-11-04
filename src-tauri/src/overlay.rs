@@ -111,11 +111,10 @@ const OVERLAY_TOP_OFFSET: f64 = 46.0;
 #[cfg(any(target_os = "windows", target_os = "linux"))]
 const OVERLAY_TOP_OFFSET: f64 = 4.0;
 
-#[cfg(target_os = "macos")]
+// Gap between the overlay and the bottom edge it floats above: the screen
+// edge on macOS (the panel sits above the dock), the work area (above the
+// taskbar or dock) elsewhere.
 const OVERLAY_BOTTOM_OFFSET: f64 = 15.0;
-
-#[cfg(any(target_os = "windows", target_os = "linux"))]
-const OVERLAY_BOTTOM_OFFSET: f64 = 40.0;
 
 /// Returns the window height for a given overlay state.
 fn height_for_state(state: &str) -> f64 {
@@ -139,10 +138,14 @@ fn update_gtk_layer_shell_anchors(overlay_window: &tauri::webview::WebviewWindow
                 OverlayPosition::Top => {
                     gtk_window.set_anchor(Edge::Top, true);
                     gtk_window.set_anchor(Edge::Bottom, false);
+                    gtk_window.set_layer_shell_margin(Edge::Top, OVERLAY_TOP_OFFSET as i32);
+                    gtk_window.set_layer_shell_margin(Edge::Bottom, 0);
                 }
                 OverlayPosition::Bottom | OverlayPosition::None => {
                     gtk_window.set_anchor(Edge::Bottom, true);
                     gtk_window.set_anchor(Edge::Top, false);
+                    gtk_window.set_layer_shell_margin(Edge::Bottom, OVERLAY_BOTTOM_OFFSET as i32);
+                    gtk_window.set_layer_shell_margin(Edge::Top, 0);
                 }
             }
         }
@@ -276,13 +279,16 @@ fn calculate_overlay_position(
                 work_area_y + OVERLAY_TOP_OFFSET
             }
             OverlayPosition::Bottom | OverlayPosition::None => {
-                // Bottom: position relative to the full screen edge so the
-                // overlay floats just above the screen bottom. The NSPanel
-                // (macOS) renders above the dock at PanelLevel::Status, and
-                // on other platforms always_on_top puts it above the taskbar.
-                let screen_height = monitor.size().height as f64 / scale;
-                let screen_y = monitor.position().y as f64 / scale;
-                screen_y + screen_height - overlay_height - OVERLAY_BOTTOM_OFFSET
+                // macOS: the NSPanel renders above the dock at
+                // PanelLevel::Status, so float just above the screen bottom.
+                // Elsewhere, float above the taskbar/dock via the work area.
+                #[cfg(target_os = "macos")]
+                let (bottom_y, bottom_height) = (monitor.position().y, monitor.size().height);
+                #[cfg(not(target_os = "macos"))]
+                let (bottom_y, bottom_height) = (work_area.position.y, work_area.size.height);
+                bottom_y as f64 / scale + bottom_height as f64 / scale
+                    - overlay_height
+                    - OVERLAY_BOTTOM_OFFSET
             }
         };
 
