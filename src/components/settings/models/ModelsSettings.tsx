@@ -6,7 +6,7 @@ import type { ModelCardStatus } from "@/components/onboarding";
 import { ModelCard } from "@/components/onboarding";
 import { useModelStore } from "@/stores/modelStore";
 import { LANGUAGES } from "@/lib/constants/languages.ts";
-import { commands, type ModelInfo } from "@/bindings";
+import type { ModelInfo } from "@/bindings";
 
 const SUPPORTED_ENGINE_TYPES: ModelInfo["engine_type"][] = ["Kokoro"];
 
@@ -25,9 +25,6 @@ export const ModelsSettings: React.FC = () => {
   const [languageFilter, setLanguageFilter] = useState("all");
   const [languageDropdownOpen, setLanguageDropdownOpen] = useState(false);
   const [languageSearch, setLanguageSearch] = useState("");
-  const [hfRepo, setHfRepo] = useState("");
-  const [hfAdding, setHfAdding] = useState(false);
-  const [hfError, setHfError] = useState<string | null>(null);
   const languageDropdownRef = useRef<HTMLDivElement>(null);
   const languageSearchInputRef = useRef<HTMLInputElement>(null);
   const {
@@ -47,24 +44,6 @@ export const ModelsSettings: React.FC = () => {
   const filteredEngineModels = useMemo(() => {
     return models.filter(isSupportedModel);
   }, [models]);
-
-  const handleAddHuggingFaceModel = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!hfRepo.trim() || hfAdding) return;
-    setHfAdding(true);
-    setHfError(null);
-    try {
-      const result = await commands.addHuggingfaceModel(hfRepo);
-      if (result.status === "ok") {
-        setHfRepo("");
-        await loadModels();
-      } else {
-        setHfError(result.error);
-      }
-    } finally {
-      setHfAdding(false);
-    }
-  };
 
   // click outside handler for language dropdown
   useEffect(() => {
@@ -242,41 +221,6 @@ export const ModelsSettings: React.FC = () => {
           {t("settings.models.description")}
         </p>
       </div>
-      <form
-        onSubmit={handleAddHuggingFaceModel}
-        className="space-y-2"
-        data-testid="hf-add-form"
-      >
-        <h2 className="text-sm font-medium text-text/60">
-          {t("settings.models.huggingFace.title")}
-        </h2>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={hfRepo}
-            onChange={(e) => setHfRepo(e.target.value)}
-            placeholder={t("settings.models.huggingFace.placeholder")}
-            className="flex-1 px-3 py-1.5 text-sm bg-mid-gray/10 border border-mid-gray/40 rounded-lg focus:outline-none focus:ring-1 focus:ring-logo-primary"
-          />
-          <button
-            type="submit"
-            disabled={hfAdding || !hfRepo.trim()}
-            className="px-3 py-1.5 text-sm font-medium rounded-lg bg-logo-primary/20 text-logo-primary hover:bg-logo-primary/30 disabled:opacity-50"
-          >
-            {hfAdding
-              ? t("settings.models.huggingFace.adding")
-              : t("settings.models.huggingFace.add")}
-          </button>
-        </div>
-        <p className="text-xs text-text/50">
-          {t("settings.models.huggingFace.hint")}
-        </p>
-        {hfError && (
-          <p className="text-xs text-red-400" role="alert">
-            {hfError}
-          </p>
-        )}
-      </form>
       <div className="space-y-6">
         {/* Downloaded Models Section — header always visible so filter stays accessible */}
         <div className="space-y-3">

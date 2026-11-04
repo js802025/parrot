@@ -313,4 +313,4 @@ Each kind of model (e.g. Kokoro) lives in `src-tauri/src/model_families/`. To ad
    - `load` returns a `Box<dyn SpeechEngine>`.
 4. List it in `FAMILIES` in `src-tauri/src/model_families/mod.rs`.
 
-Downloads, "Add from Hugging Face", playback, history and the Models page then work for the new family without further changes.
+Downloads, playback, history and the Models page then work for the new family without further changes. The `add_huggingface_model` command can import a repo for any listed family; the Models page has no input for it yet.

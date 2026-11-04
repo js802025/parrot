@@ -142,14 +142,7 @@
         "allLanguages": "Tutte le lingue"
       },
       "noModelsMatch": "Nessun modello corrisponde a questo filtro.",
-      "searchPlaceholder": "Cerca modelli",
-      "huggingFace": {
-        "title": "Aggiungi da Hugging Face",
-        "placeholder": "owner/model o URL huggingface.co",
-        "add": "Aggiungi",
-        "adding": "Aggiunta...",
-        "hint": "Supporta i modelli Kokoro ONNX (.onnx + voci .bin)."
-      }
+      "searchPlaceholder": "Cerca modelli"
     },
     "sound": {
       "title": "Suono",
