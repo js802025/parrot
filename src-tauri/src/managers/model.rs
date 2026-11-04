@@ -983,6 +983,10 @@ impl ModelManager {
             let mut models = self.available_models.lock().unwrap();
             models.remove(model_id);
             debug!("ModelManager: removed custom model from available models");
+        } else if model_id.starts_with("hf-") {
+            self.available_models.lock().unwrap().remove(model_id);
+            self.save_huggingface_models()?;
+            debug!("ModelManager: removed Hugging Face model from available models");
         } else {
             // Update download status (marks predefined models as not downloaded)
             self.update_download_status()?;
@@ -1102,6 +1106,9 @@ fn load_cached_huggingface_models(models_dir: &Path) -> Vec<ModelInfo> {
                 added
                     .into_iter()
                     .filter(|m| m.engine_type != EngineType::Piper)
+                    // Hugging Face import is not offered in the UI, so only keep
+                    // models the user already has on disk.
+                    .filter(|m| models_dir.join(&m.filename).exists())
                     .map(|mut m| {
                         m.is_custom = false;
                         m
@@ -1200,7 +1207,7 @@ mod huggingface_tests {
     }
 
     #[test]
-    fn added_models_round_trip_through_cache_files() {
+    fn cached_models_keep_only_downloaded_kokoro() {
         let dir = std::env::temp_dir().join(format!("parrot-hf-cache-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
         let mut added = models_from_hf_repo(
@@ -1212,6 +1219,15 @@ mod huggingface_tests {
         piper.id = "hf-me--voices--a".to_string();
         piper.engine_type = EngineType::Piper;
         added.push(piper);
+        let mut not_downloaded = added[0].clone();
+        not_downloaded.id = "hf-me--gone".to_string();
+        not_downloaded.filename = "gone".to_string();
+        added.push(not_downloaded);
+        for m in &added {
+            if m.id != "hf-me--gone" {
+                fs::create_dir_all(dir.join(&m.filename)).unwrap();
+            }
+        }
         fs::write(
             dir.join(HF_MODELS_FILE),
             serde_json::to_string(&added).unwrap(),
