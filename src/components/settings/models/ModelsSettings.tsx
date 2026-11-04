@@ -1,27 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ask } from "@tauri-apps/plugin-dialog";
-import { ChevronDown, Globe, Search } from "lucide-react";
+import { ChevronDown, Globe } from "lucide-react";
 import type { ModelCardStatus } from "@/components/onboarding";
 import { ModelCard } from "@/components/onboarding";
 import { useModelStore } from "@/stores/modelStore";
 import { LANGUAGES } from "@/lib/constants/languages.ts";
 import { commands, type ModelInfo } from "@/bindings";
 
-const SUPPORTED_ENGINE_TYPES: ModelInfo["engine_type"][] = ["Kokoro", "Piper"];
+const SUPPORTED_ENGINE_TYPES: ModelInfo["engine_type"][] = ["Kokoro"];
 
 const isSupportedModel = (model: ModelInfo): boolean => {
   return SUPPORTED_ENGINE_TYPES.includes(model.engine_type);
-};
-
-const matchesSearch = (model: ModelInfo, query: string): boolean => {
-  const needle = query.trim().toLowerCase();
-  return (
-    !needle ||
-    `${model.name} ${model.description} ${model.id}`
-      .toLowerCase()
-      .includes(needle)
-  );
 };
 
 // check if model supports a language based on its supported_languages list
@@ -35,7 +25,6 @@ export const ModelsSettings: React.FC = () => {
   const [languageFilter, setLanguageFilter] = useState("all");
   const [languageDropdownOpen, setLanguageDropdownOpen] = useState(false);
   const [languageSearch, setLanguageSearch] = useState("");
-  const [modelSearch, setModelSearch] = useState("");
   const [hfRepo, setHfRepo] = useState("");
   const [hfAdding, setHfAdding] = useState(false);
   const [hfError, setHfError] = useState<string | null>(null);
@@ -58,16 +47,6 @@ export const ModelsSettings: React.FC = () => {
   const filteredEngineModels = useMemo(() => {
     return models.filter(isSupportedModel);
   }, [models]);
-
-  useEffect(() => {
-    commands.refreshModelCatalog().then((result) => {
-      if (result.status === "ok") {
-        loadModels();
-      } else {
-        console.warn("Hugging Face catalog refresh failed:", result.error);
-      }
-    });
-  }, [loadModels]);
 
   const handleAddHuggingFaceModel = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -207,9 +186,9 @@ export const ModelsSettings: React.FC = () => {
       if (languageFilter !== "all") {
         if (!modelSupportsLanguage(model, languageFilter)) return false;
       }
-      return matchesSearch(model, modelSearch);
+      return true;
     });
-  }, [filteredEngineModels, languageFilter, modelSearch]);
+  }, [filteredEngineModels, languageFilter]);
 
   // Split filtered models into downloaded (including custom) and available sections
   const { downloadedModels, availableModels } = useMemo(() => {
@@ -298,16 +277,6 @@ export const ModelsSettings: React.FC = () => {
           </p>
         )}
       </form>
-      <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text/40" />
-        <input
-          type="search"
-          value={modelSearch}
-          onChange={(e) => setModelSearch(e.target.value)}
-          placeholder={t("settings.models.searchPlaceholder")}
-          className="w-full pl-8 pr-3 py-1.5 text-sm bg-mid-gray/10 border border-mid-gray/40 rounded-lg focus:outline-none focus:ring-1 focus:ring-logo-primary"
-        />
-      </div>
       <div className="space-y-6">
         {/* Downloaded Models Section — header always visible so filter stays accessible */}
         <div className="space-y-3">

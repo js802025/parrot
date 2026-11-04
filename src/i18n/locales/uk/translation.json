@@ -148,7 +148,7 @@
         "placeholder": "owner/model або URL huggingface.co",
         "add": "Додати",
         "adding": "Додавання...",
-        "hint": "Підтримуються голоси Piper (.onnx + .onnx.json) і моделі Kokoro ONNX (.onnx + voices .bin)."
+        "hint": "Підтримуються моделі Kokoro ONNX (.onnx + голоси .bin)."
       }
     },
     "sound": {

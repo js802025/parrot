@@ -148,7 +148,7 @@
         "placeholder": "owner/model 或 huggingface.co 網址",
         "add": "新增",
         "adding": "正在新增...",
-        "hint": "支援 Piper 語音（.onnx + .onnx.json）與 Kokoro ONNX 模型（.onnx + voices .bin）。"
+        "hint": "支援 Kokoro ONNX 模型（.onnx + 聲音 .bin）。"
       }
     },
     "sound": {

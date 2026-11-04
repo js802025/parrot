@@ -148,7 +148,7 @@
         "placeholder": "owner/model or huggingface.co URL",
         "add": "Add",
         "adding": "Adding...",
-        "hint": "Supports Piper voices (.onnx + .onnx.json) and Kokoro ONNX models (.onnx + voices .bin)."
+        "hint": "Supports Kokoro ONNX models (.onnx + voices .bin)."
       }
     },
     "sound": {

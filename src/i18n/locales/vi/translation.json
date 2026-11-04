@@ -148,7 +148,7 @@
         "placeholder": "owner/model hoặc URL huggingface.co",
         "add": "Thêm",
         "adding": "Đang thêm...",
-        "hint": "Hỗ trợ giọng Piper (.onnx + .onnx.json) và mô hình Kokoro ONNX (.onnx + voices .bin)."
+        "hint": "Hỗ trợ mô hình Kokoro ONNX (.onnx + giọng .bin)."
       }
     },
     "sound": {

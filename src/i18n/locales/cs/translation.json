@@ -148,7 +148,7 @@
         "placeholder": "owner/model nebo URL huggingface.co",
         "add": "Přidat",
         "adding": "Přidávání...",
-        "hint": "Podporuje hlasy Piper (.onnx + .onnx.json) a modely Kokoro ONNX (.onnx + voices .bin)."
+        "hint": "Podporuje modely Kokoro ONNX (.onnx + hlasy .bin)."
       }
     },
     "sound": {

@@ -148,7 +148,7 @@
         "placeholder": "owner/model または huggingface.co の URL",
         "add": "追加",
         "adding": "追加中...",
-        "hint": "Piper 音声（.onnx + .onnx.json）と Kokoro ONNX モデル（.onnx + voices .bin）に対応しています。"
+        "hint": "Kokoro の ONNX モデル（.onnx + 音声 .bin）に対応しています。"
       }
     },
     "sound": {

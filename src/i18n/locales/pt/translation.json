@@ -148,7 +148,7 @@
         "placeholder": "owner/model ou URL do huggingface.co",
         "add": "Adicionar",
         "adding": "Adicionando...",
-        "hint": "Suporta vozes Piper (.onnx + .onnx.json) e modelos Kokoro ONNX (.onnx + voices .bin)."
+        "hint": "Compatível com modelos Kokoro ONNX (.onnx + vozes .bin)."
       }
     },
     "sound": {
