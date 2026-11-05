@@ -2,7 +2,7 @@ use crate::input;
 use crate::settings;
 use crate::settings::OverlayPosition;
 use serde::Serialize;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize};
 
@@ -10,6 +10,7 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize};
 struct OverlayPayload {
     state: String,
     text: Option<String>,
+    animate: bool,
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -61,6 +62,10 @@ const RESIZE_ANIM_MIN_DELTA: f64 = 0.5;
 // rapid successive resize calls (e.g. content height changing as streamed
 // text wraps) don't queue up competing animations — only the latest wins.
 static OVERLAY_RESIZE_GENERATION: AtomicU64 = AtomicU64::new(0);
+
+// WebKit leaves stale frames on transparent layer-shell surfaces (Sway,
+// Hyprland), so size changes there snap instead of animating.
+static OVERLAY_ANIMATES: AtomicBool = AtomicBool::new(true);
 
 // cubic-bezier(0.22, 0.61, 0.36, 1) evaluator, matching the easing curve
 // already used for the width/padding/border-radius CSS transitions in
@@ -352,6 +357,16 @@ fn animate_resize_to(
         return;
     }
 
+    if !OVERLAY_ANIMATES.load(Ordering::Relaxed) {
+        OVERLAY_RESIZE_GENERATION.fetch_add(1, Ordering::SeqCst);
+        let app_handle = app_handle.clone();
+        let window = overlay_window.clone();
+        let _ = overlay_window.run_on_main_thread(move || {
+            resize_and_reposition(&app_handle, &window, target_height);
+        });
+        return;
+    }
+
     let my_generation = OVERLAY_RESIZE_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
 
     let app_handle = app_handle.clone();
@@ -444,6 +459,7 @@ pub fn create_speaking_overlay(app_handle: &AppHandle) {
         Ok(window) => {
             if init_gtk_layer_shell(&window) {
                 debug!("GTK layer shell initialized for overlay window");
+                OVERLAY_ANIMATES.store(false, Ordering::Relaxed);
             } else {
                 debug!("GTK layer shell not available, falling back to regular window");
                 // GTK keeps non-resizable windows at least as big as the
@@ -547,6 +563,7 @@ fn show_overlay_state_now(app_handle: &AppHandle, state: &str, text: Option<Stri
         let payload = OverlayPayload {
             state: state.to_string(),
             text,
+            animate: OVERLAY_ANIMATES.load(Ordering::Relaxed),
         };
         let _ = overlay_window.emit("show-overlay", payload);
     }
